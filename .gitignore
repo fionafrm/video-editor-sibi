@@ -137,7 +137,5 @@ GitHub.sublime-settings
 !.vscode/extensions.json
 .history
 
-# Media (video dan edited video)
-media/
 
 *.zip
