@@ -34,4 +34,4 @@
 - created_at : Auto add waktu membuat objek edited video
 
 ### How to Test it out?
-Untuk melakukan testing, saya menggunakan Postman. Video demo akan diunggah di YouTube. Berikut linknya:
+Untuk melakukan testing, saya menggunakan Postman. Video demo akan diunggah di YouTube. Berikut linknya: https://youtu.be/oyA5MXbW0sY
