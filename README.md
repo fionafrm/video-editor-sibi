@@ -35,3 +35,7 @@
 
 ### How to Test it out?
 Untuk melakukan testing, saya menggunakan Postman. Video demo akan diunggah di YouTube. Berikut linknya: https://youtu.be/oyA5MXbW0sY
+
+## Cara Penggunaan
+
+### Upload Video
