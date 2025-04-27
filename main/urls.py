@@ -5,7 +5,10 @@ from .views import (
     save_transcript,
     get_video_details,
     upload_transcript_csv,
-    merge_videos
+    merge_videos,
+    video_editor_page,
+    delete_video,
+    upload_video_page
 )
 
 urlpatterns = [
@@ -24,5 +27,17 @@ urlpatterns = [
     # Upload transkrip dalam format CSV
     path('upload_transcript_csv/', upload_transcript_csv, name='upload_transcript_csv'),
 
+    # Merge video berdasarkan video ID
     path('merge_videos/<int:video_id>/', merge_videos, name='merge_videos'),
+
+    # Halaman editor video
+    path('video_editor/', video_editor_page, name='video_editor'),
+
+    # Delete video
+    path('delete_video/<int:video_id>/', delete_video, name='delete_video'),
+
+    # Halaman Upload Video
+    path('upload_video_page/', upload_video_page, name='upload_video_page')
+
+
 ]

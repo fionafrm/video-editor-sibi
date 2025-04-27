@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload Video</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    .upload-box { border: 1px solid #ccc; border-radius: 8px; padding: 30px; width: 400px; text-align: center; }
+    input[type="text"], input[type="file"] { width: 100%; margin: 10px 0; padding: 8px; }
+    button { padding: 10px 20px; background: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+
+<div class="upload-box">
+  <h2>Upload Video Baru</h2>
+  <input type="text" id="title" placeholder="Judul Video" required />
+  <input type="file" id="videoFile" accept="video/*" required />
+  <button onclick="uploadVideo()">Upload</button>
+</div>
+
+<script>
+function uploadVideo() {
+  const fileInput = document.getElementById('videoFile');
+  const titleInput = document.getElementById('title');
+  
+  if (!fileInput.files[0] || !titleInput.value) {
+    alert('Lengkapi judul dan file video!');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('title', titleInput.value);
+
+  fetch('/upload_video/', {
+    method: 'POST',
+    body: formData
+  }).then(res => res.json())
+    .then(data => {
+      if (data.video_id) {
+        alert('Upload berhasil!');
+        window.location.href = `/video_editor/?video_id=${data.video_id}`;
+      } else {
+        alert('Gagal upload: ' + (data.error || 'Unknown error'));
+      }
+    }).catch(err => {
+      alert('Terjadi kesalahan: ' + err);
+    });
+}
+</script>
+
+</body>
+</html>
