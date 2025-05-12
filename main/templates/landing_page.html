@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Editor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .folder {
+      padding: 20px;
+      margin: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      width: 200px;
+      cursor: pointer;
+    }
+    .folder:hover {
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="{% url 'upload_video_page' %}">Upload Video</a>
+  <a href="{% url 'upload_transcript_page' %}">Upload Transcript</a>
+</nav>
+
+<h1>Pilih tanggal video yang ingin ditampilkan</h1>
+
+<div>
+  {% for folder in folders %}
+    <div class="folder" onclick="window.location.href='{% url 'search_video' folder_name=folder %}'">
+    <h3>{{ folder }}</h3>
+    </div>
+  {% endfor %}
+</div>
+
+</body>
+</html>

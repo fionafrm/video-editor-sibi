@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Transcript CSV</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        input[type="file"] {
+            display: block;
+            margin-bottom: 20px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .message {
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Upload Transcript CSV</h2>
+<div class="form-container">
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="file">Select CSV file:</label>
+        <input type="file" name="file" id="file" accept=".csv" required>
+        <button type="submit">Upload CSV</button>
+    </form>
+
+    <div id="responseMessage" class="message"></div>
+</div>
+
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        // Get the file input
+        const fileInput = document.getElementById('file');
+        const formData = new FormData();
+
+        // Add the file to the FormData object
+        formData.append('file', fileInput.files[0]);
+
+        // Send the data to the backend
+        fetch('/upload_transcript_csv/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Display success message
+            const messageDiv = document.getElementById('responseMessage');
+            if (data.message) {
+                messageDiv.textContent = data.message;
+                messageDiv.style.color = 'green';
+            } else if (data.error) {
+                messageDiv.textContent = data.error;
+                messageDiv.style.color = 'red';
+            }
+        })
+        .catch(error => {
+            const messageDiv = document.getElementById('responseMessage');
+            messageDiv.textContent = 'An error occurred while uploading the file.';
+            messageDiv.style.color = 'red';
+        });
+    });
+</script>
+
+</body>
+</html>
