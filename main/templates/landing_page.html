@@ -7,38 +7,96 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
+      margin: 0;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .nav-left a {
+      margin-right: 15px;
+      text-decoration: none;
+      color: #0066cc;
+      font-weight: bold;
+    }
+
+    .nav-right a {
+      color: red;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .folder-container {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
     }
+
     .folder {
       padding: 20px;
-      margin: 10px;
       border: 1px solid #ccc;
-      border-radius: 8px;
-      width: 200px;
+      border-radius: 10px;
+      width: 220px;
       cursor: pointer;
+      transition: background-color 0.2s ease;
     }
+
     .folder:hover {
-      background-color: #f0f0f0;
+      background-color: #f9f9f9;
+    }
+
+    .folder h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .folder p {
+      margin: 0;
+      font-size: 14px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
 <nav>
-  <a href="{% url 'upload_video_page' %}">Upload Video</a>
-  <a href="{% url 'upload_transcript_page' %}">Upload Transcript</a>
+  <div class="nav-left">
+    <a href="{% url 'upload_video_page' %}">Upload Video</a>
+    <a href="{% url 'upload_transcript_page' %}">Upload Transcript</a>
+  </div>
+  <div class="nav-right">
+    <a href="{% url 'logout' %}">Logout</a>
+  </div>
 </nav>
 
 <h1>Pilih tanggal video yang ingin ditampilkan</h1>
 
-<div>
+<div class="folder-container">
   {% for folder in folders %}
-    <div class="folder" onclick="window.location.href='{% url 'search_video' folder_name=folder %}'">
-    <h3>{{ folder }}</h3>
+    <div class="folder" onclick="window.location.href='{% url 'search_video' folder_name=folder.name %}'">
+      <h3>{{ folder.name }}</h3>
+      <p>
+        {% if folder.all_done %}
+          ✅ Sudah selesai ({{ folder.annotated }}/{{ folder.total }})
+        {% else %}
+          ⏳ Belum selesai ({{ folder.annotated }}/{{ folder.total }})
+        {% endif %}
+      </p>
     </div>
   {% endfor %}
 </div>
+
 
 </body>
 </html>

@@ -3,107 +3,178 @@
 <head>
   <meta charset="UTF-8">
   <title>Video Editor</title>
-  <!-- noUiSlider CSS -->
   <link href="https://cdn.jsdelivr.net/npm/nouislider@15.6.1/dist/nouislider.min.css" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; padding: 20px; display: flex; gap: 20px; }
-    .video-panel, .editor-panel { flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 16px; }
-    textarea { width: 100%; height: 100px; }
-    .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .actions button { padding: 8px 12px; }
-    .readonly-box { background: #f0f0f0; padding: 10px; border-radius: 5px; white-space: pre-wrap; height: 120px; overflow-y: auto; margin-bottom: 10px; }
-    .range-control label { font-weight: bold; display: block; margin-top: 10px; }
-    input[type=range] { width: 100%; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+
+    /* Navbar */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f4f4f4;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .nav-left a,
+    .nav-right a {
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .nav-left a {
+      color: #0066cc;
+    }
+
+    .nav-right a {
+      color: red;
+    }
+
+    /* Main Layout */
+    .main-content {
+      display: flex;
+      gap: 20px;
+    }
+
+    .video-panel, .editor-panel {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+    }
+
+    .readonly-box {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+      height: 120px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    .range-control label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+
+    input[type=range] {
+      width: 100%;
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .actions button {
+      padding: 8px 12px;
+    }
   </style>
 </head>
 <body>
-<!-- <nav>
-  <a href="{% url 'upload_video_page' %}">Upload Video</a>
-  <a href="{% url 'upload_transcript_page' %}">Upload Transcript</a>
-</nav> -->
-<!-- <h1>Video Editor</h1> -->
-<div class="video-panel">
-  <video id="videoPlayer" controls style="width:100%; border-radius: 8px;">
-  </video>
-</div>
 
-<div class="editor-panel">
-  <h2>Transkrip Audio Otomatis</h2>
-  <div id="transcriptOutput" class="readonly-box">{{ video.transcript|default:"Tidak ada transkrip." }}</div>
+<!-- NAVBAR -->
+<nav class="top-nav">
+  <div class="nav-left">
+    <a href="/">🏠 Home</a>
+  </div>
+  <div class="nav-right">
+    <a href="{% url 'logout' %}">Logout</a>
+  </div>
+</nav>
 
-  <h3>SIBI Sentence</h3>
-  <textarea id="transcriptInput">{{ video.transcript }}</textarea>
-
-  <h3>Komentar</h3>
-  <textarea id="commentsInput">{{ video.comments }}</textarea>
-
-  <!-- Trim Range Slider -->
-  <div class="range-control">
-    <label>Durasi Video:</label>
-    <label>Waktu video mulai:</label>
-    <input type="range" id="startHandle" step="0.01" value="0" />
-    <label>Waktu video berakhir:</label>
-    <input type="range" id="endHandle" step="0.01" value="0" />
-    <div>Mulai: <span id="startVal">0</span>s | Berakhir: <span id="endVal">0</span>s</div>
+<!-- KONTEN UTAMA -->
+<div class="main-content">
+  <div class="video-panel">
+    <video id="videoPlayer" controls></video>
   </div>
 
-  <!-- Hidden inputs for backend -->
-  <input type="hidden" id="startTime" />
-  <input type="hidden" id="endTime" />
+  <div class="editor-panel">
+    <h2>Transkrip Audio Otomatis</h2>
+    <div id="transcriptOutput" class="readonly-box">{{ video.transcript|default:"Tidak ada transkrip." }}</div>
 
-  <div class="actions">
-    <button onclick="saveTranscript()">Simpan Anotasi Saja</button>
-    <button onclick="previewTrim()">Preview Video</button>
-    <button id="trimButton" onclick="confirmTrim()" disabled>OK</button>
+    <h3>SIBI Sentence</h3>
+    <textarea id="transcriptInput">{{ video.transcript }}</textarea>
 
-    <button onclick="goToPrevious()">Sebelumnya</button>
-    <button id="nextButton" onclick="goToNext()">Selanjutnya</button>
+    <h3>Komentar</h3>
+    <textarea id="commentsInput">{{ video.comments }}</textarea>
+
+    <!-- Range -->
+    <div class="range-control">
+      <label>Durasi Video:</label>
+      <label>Waktu video mulai:</label>
+      <input type="range" id="startHandle" step="0.01" value="0" />
+      <label>Waktu video berakhir:</label>
+      <input type="range" id="endHandle" step="0.01" value="0" />
+      <div>Mulai: <span id="startVal">0</span>s | Berakhir: <span id="endVal">0</span>s</div>
+    </div>
+
+    <input type="hidden" id="startTime" />
+    <input type="hidden" id="endTime" />
+
+    <div class="actions">
+      <button onclick="saveTranscript()">Simpan Anotasi Saja</button>
+      <button onclick="previewTrim()">Preview Video</button>
+      <button id="trimButton" onclick="confirmTrim()" disabled>OK</button>
+      <button onclick="goToPrevious()">Sebelumnya</button>
+      <button id="nextButton" onclick="goToNext()">Selanjutnya</button>
+    </div>
   </div>
 </div>
 
+<!-- SCRIPT -->
 <script>
-  let videoTitle = "{{ video.title }}";  // Ambil video.title dari template
+  let videoTitle = "{{ video.title }}";
   const video = document.getElementById('videoPlayer');
   const startHandle = document.getElementById('startHandle');
   const endHandle = document.getElementById('endHandle');
-
-  function getVideoTitleFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('video_title');
-  }
 
   window.onload = function () {
     fetch(`/get_merged_video/${videoTitle}/`)
       .then(res => res.json())
       .then(videoData => {
-        console.log('Merged video response:', videoData);  // Debug log
         if (videoData.merged_video_url) {
           video.src = videoData.merged_video_url;
           video.load();
           video.play();
 
-          // Isi transkrip
           document.getElementById('transcriptOutput').innerText = videoData.transcript || 'Tidak ada transkrip.';
           document.getElementById('transcriptInput').value = videoData.transcript || '';
-        } else {
-          alert('Gagal memuat video gabungan.');
         }
-      })
-      .catch(err => {
-        console.error('Error fetch merged video:', err);
-        alert('Terjadi kesalahan saat memuat video.');
       });
-  fetch(`/get_next_status/{{ video.folder_name }}/{{ video.title }}/`)
-    .then(res => res.json())
-    .then(data => {
-      const nextBtn = document.getElementById('nextButton');
-      if (!data.has_next) {
-        nextBtn.innerText = 'Finish';
-        nextBtn.onclick = function () {
-          window.location.href = '/';
-        };
-      }
-    });
+
+    fetch(`/get_next_status/{{ video.folder_name }}/{{ video.title }}/`)
+      .then(res => res.json())
+      .then(data => {
+        const nextBtn = document.getElementById('nextButton');
+        if (!data.has_next) {
+          nextBtn.innerText = '🏁 Selesai';
+          nextBtn.onclick = function () {
+            window.location.href = '/';
+          };
+        }
+      });
   };
 
   video.onloadedmetadata = function () {
@@ -125,11 +196,9 @@
     document.getElementById('startVal').textContent = start;
     document.getElementById('startTime').value = start;
 
-    // Atur waktu & autoplay
     video.currentTime = start;
     video.play();
 
-    // Stop otomatis saat mencapai end
     const interval = setInterval(() => {
       if (video.currentTime >= end) {
         video.pause();
@@ -165,7 +234,7 @@
 
     fetch(`/save_transcript/${videoTitle}/`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: newTranscript, comments: newComments })
     }).then(() => {
       alert('Transkrip disimpan!');
@@ -189,8 +258,6 @@
       if (video.currentTime >= end) {
         video.pause();
         clearInterval(interval);
-
-        // ✅ Aktifkan tombol trim
         document.getElementById('trimButton').disabled = false;
       }
     }, 100);
@@ -208,21 +275,15 @@
     const confirmTrim = confirm(`Yakin ingin memotong video dari ${start.toFixed(2)}s ke ${end.toFixed(2)}s?\nTranskrip dan komentar juga akan disimpan.`);
     if (!confirmTrim) return;
 
-    // ✅ Ambil transkrip dan komentar
     const newTranscript = document.getElementById('transcriptInput').value;
     const newComments = document.getElementById('commentsInput').value;
 
-    // ✅ Simpan transcript dan komentar dulu
     fetch(`/save_transcript/${videoTitle}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        transcript: newTranscript,
-        comments: newComments
-      })
+      body: JSON.stringify({ transcript: newTranscript, comments: newComments })
     })
     .then(() => {
-      // ✅ Setelah sukses simpan, lanjut ke trim
       return fetch(`/trim_video/${videoTitle}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,7 +307,6 @@
   }
 
   function goToPrevious() {
-    // Cari video terakhir yang dianotasi oleh user ini di folder yg sama
     fetch(`/get_previous_video/{{ video.folder_name }}/`)
       .then(res => res.json())
       .then(data => {

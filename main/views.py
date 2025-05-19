@@ -16,8 +16,11 @@ import json
 import csv
 from .models import Video, EditedVideo
 import logging
+from collections import defaultdict
+
 
 @csrf_exempt
+@login_required
 def upload_video(request):
     """ Mengunggah video baru """
     if request.method == 'POST' and request.FILES.get('file'):
@@ -46,61 +49,10 @@ def upload_video(request):
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
-
 logger = logging.getLogger(__name__)
 
-# @csrf_exempt
-# def merge_videos(request, video_title):
-#     """ Menggabungkan video berdasarkan video_title yang memiliki urutan """
-#     try:
-#         # Get the current video based on video_title
-#         video = get_object_or_404(Video, title=video_title)
-
-#         # Extract sequence number from video_title (e.g., 'nameFolder_0001.mp4')
-#         current_sequence = int(video_title.split('_')[-1].replace('.mp4', ''))
-
-#         # Find the next video with the next sequence
-#         next_video_title = f"{'_'.join(video_title.split('_')[:-1])}_{current_sequence + 1}.mp4"
-#         next_video = Video.objects.filter(title=next_video_title).first()
-
-#         if not next_video:
-#             # If there is no next video, consider this as the last video
-#             next_video = video
-#             next_video_title = video_title
-
-#         # Get the file paths for both videos
-#         video_path1 = video.file.path
-#         video_path2 = next_video.file.path
-
-#         # Log the paths to make sure they're correct
-#         logger.info(f"Merging videos: {video_path1} and {video_path2}")
-
-#         # Concatenate video clips using moviepy
-#         merged_clip = concatenate_videoclips([VideoFileClip(video_path1), VideoFileClip(video_path2)])
-
-#         # Define the path for the merged video
-#         merged_video_filename = f"merged_{video_title}_{next_video_title}.mp4"
-#         merged_path = os.path.join('edited_videos', merged_video_filename)
-
-#         # Ensure the edited_videos directory exists
-#         os.makedirs(os.path.join(settings.MEDIA_ROOT, 'edited_videos'), exist_ok=True)
-
-#         # Write the merged video to file
-#         merged_clip.write_videofile(default_storage.path(merged_path), codec="libx264")
-
-#         # Save the merged video path to the database
-#         video.merged_video_path = merged_path
-#         video.save()
-
-#         # Return the URL of the merged video
-#         return JsonResponse({'message': 'Videos merged successfully', 'merged_video_url': default_storage.url(merged_path), 'video_title' : video_title})
-
-#     except Exception as e:
-#         # Log any error that occurs
-#         logger.error(f"Error in merging videos: {str(e)}")
-#         return JsonResponse({'error': f"Error merging videos: {str(e)}"}, status=500)
-
 @csrf_exempt
+@login_required
 def merge_videos(request, video_title):
     """ Menggabungkan video dengan video selanjutnya (berdasarkan urutan nama) """
     try:
@@ -155,6 +107,7 @@ def merge_videos(request, video_title):
 
 
 @csrf_exempt
+@login_required
 def trim_video(request, video_title):
     if request.method == 'POST':
         video = get_object_or_404(Video, title=video_title)
@@ -197,6 +150,7 @@ def trim_video(request, video_title):
 
 
 @csrf_exempt
+@login_required
 def save_transcript(request, video_title):
     if request.method == 'POST':
         data = json.loads(request.body)
@@ -210,7 +164,7 @@ def save_transcript(request, video_title):
         if comments is not None:
             video.comments = comments
 
-        # ✅ Tandai sebagai sudah dianotasi
+        # Tandai sebagai sudah dianotasi
         video.is_annotated = True
         video.annotated_by = request.user
         video.save()
@@ -229,6 +183,7 @@ def save_transcript(request, video_title):
 
 
 @csrf_exempt
+@login_required
 def get_video_details(request, video_title):
     """ Mengambil informasi video, transkripnya, dan komennya """
     video = get_object_or_404(Video, title=video_title)
@@ -238,6 +193,8 @@ def get_video_details(request, video_title):
         'comments': video.comments
     })
 
+@csrf_exempt
+@login_required
 def get_merged_video(request, video_title):
     video = get_object_or_404(Video, title=video_title)
 
@@ -266,6 +223,7 @@ def get_merged_video(request, video_title):
     return merge_response
 
 @csrf_exempt
+@login_required
 def get_next_video_status(request, folder_name, current_title):
     videos = Video.objects.filter(folder_name=folder_name, is_annotated=False).order_by('title')
 
@@ -277,6 +235,7 @@ def get_next_video_status(request, folder_name, current_title):
 
 
 @csrf_exempt
+@login_required
 def upload_transcript_csv(request):
     """ Mengunggah transkrip dari file CSV """
     if request.method == 'POST' and request.FILES.get('file'):
@@ -305,6 +264,7 @@ def upload_transcript_csv(request):
 
 @csrf_exempt
 @require_http_methods(["DELETE"])
+@login_required
 def delete_video(request, video_title):
     """ Menghapus video beserta file fisiknya """
     video = get_object_or_404(Video, title=video_title)
@@ -325,7 +285,7 @@ def delete_video(request, video_title):
 
 
 @csrf_exempt
-# @login_required
+@login_required
 def search_videos(request, folder_name):
     # Ambil semua video dalam folder, urutkan berdasarkan nama
     videos = Video.objects.filter(folder_name=folder_name).order_by('title')
@@ -339,6 +299,7 @@ def search_videos(request, folder_name):
     return redirect('folder_page', folder_name=folder_name)
 
 @csrf_exempt
+@login_required
 def get_previous_video(request, folder_name):
     user = request.user
     # Cari video yang sudah dianotasi oleh user dan urutkan mundur
@@ -378,24 +339,47 @@ def logout_view(request):
 
 """KHUSUS UNTUK PAGE"""
 
+@login_required
 def landing_page(request):
     """ Menampilkan halaman landing page dengan folder-folder """
-    folders = set(Video.objects.values_list('folder_name', flat=True))
-    
-    return render(request, 'landing_page.html', {'folders': folders})
+    all_videos = Video.objects.all()
+    folder_dict = defaultdict(list)
 
+    # Kelompokkan video berdasarkan folder_name
+    for video in all_videos:
+        folder_dict[video.folder_name].append(video)
+
+    # Buat list folder dengan status annotasi
+    folder_info = []
+    for folder_name, videos in folder_dict.items():
+        total = len(videos)
+        annotated = sum(1 for v in videos if v.is_annotated)
+        all_done = (annotated == total)
+        folder_info.append({
+            'name': folder_name,
+            'annotated': annotated,
+            'total': total,
+            'all_done': all_done
+        })
+
+    return render(request, 'landing_page.html', {'folders': folder_info})
+
+@login_required
 def folder_page(request, folder_name):
     """ Menampilkan halaman folder dengan daftar video di dalamnya """
     videos = Video.objects.filter(folder_name=folder_name)
     
     return render(request, 'folder_page.html', {'folder_name': folder_name, 'videos': videos})
 
+@login_required
 def video_editor_page(request, video_title):
     video = get_object_or_404(Video, title=video_title)
     return render(request, 'video_editor.html', {'video': video})
 
+@login_required
 def upload_video_page(request):
     return render(request, 'upload_video.html')
 
+@login_required
 def upload_transcript_page(request):
     return render(request, 'upload_transcript.html')
