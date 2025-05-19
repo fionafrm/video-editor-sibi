@@ -1,4 +1,3 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,27 +17,34 @@
   </style>
 </head>
 <body>
-
+<!-- <nav>
+  <a href="{% url 'upload_video_page' %}">Upload Video</a>
+  <a href="{% url 'upload_transcript_page' %}">Upload Transcript</a>
+</nav> -->
+<!-- <h1>Video Editor</h1> -->
 <div class="video-panel">
-  <video id="videoPlayer" controls style="width:100%; border-radius: 8px;"></video>
+  <video id="videoPlayer" controls style="width:100%; border-radius: 8px;">
+  </video>
 </div>
 
 <div class="editor-panel">
-  <h2>Transkrip Saat Ini</h2>
-  <div id="transcriptOutput" class="readonly-box">Tidak ada transkrip.</div>
+  <h2>Transkrip Audio Otomatis</h2>
+  <div id="transcriptOutput" class="readonly-box">{{ video.transcript|default:"Tidak ada transkrip." }}</div>
 
-  <h3>Perbarui Transkrip</h3>
-  <textarea id="transcriptInput"></textarea>
+  <h3>SIBI Sentence</h3>
+  <textarea id="transcriptInput">{{ video.transcript }}</textarea>
 
   <h3>Komentar</h3>
-  <textarea id="commentsInput"></textarea>
+  <textarea id="commentsInput">{{ video.comments }}</textarea>
 
   <!-- Trim Range Slider -->
   <div class="range-control">
-    <label>Trim Range:</label>
+    <label>Durasi Video:</label>
+    <label>Waktu video mulai:</label>
     <input type="range" id="startHandle" step="0.01" value="0" />
+    <label>Waktu video berakhir:</label>
     <input type="range" id="endHandle" step="0.01" value="0" />
-    <div>Start: <span id="startVal">0</span>s | End: <span id="endVal">0</span>s</div>
+    <div>Mulai: <span id="startVal">0</span>s | Berakhir: <span id="endVal">0</span>s</div>
   </div>
 
   <!-- Hidden inputs for backend -->
@@ -46,35 +52,58 @@
   <input type="hidden" id="endTime" />
 
   <div class="actions">
-    <button onclick="saveTranscript()">Simpan Transkrip</button>
-    <button onclick="previewTrim()">Preview Trim</button>
-    <button id="trimButton" onclick="confirmTrim()" disabled>Trim Video</button>
+    <button onclick="saveTranscript()">Simpan Anotasi Saja</button>
+    <button onclick="previewTrim()">Preview Video</button>
+    <button id="trimButton" onclick="confirmTrim()" disabled>OK</button>
+
+    <button onclick="goToPrevious()">Sebelumnya</button>
+    <button id="nextButton" onclick="goToNext()">Selanjutnya</button>
   </div>
 </div>
 
 <script>
-  let videoId = null;
+  let videoTitle = "{{ video.title }}";  // Ambil video.title dari template
   const video = document.getElementById('videoPlayer');
   const startHandle = document.getElementById('startHandle');
   const endHandle = document.getElementById('endHandle');
 
-  function getVideoIdFromUrl() {
+  function getVideoTitleFromUrl() {
     const params = new URLSearchParams(window.location.search);
-    return params.get('video_id');
+    return params.get('video_title');
   }
 
   window.onload = function () {
-    const id = getVideoIdFromUrl();
-    if (id) {
-      videoId = id;
-      fetch(`/get_video_details/${videoId}/`)
-        .then(res => res.json())
-        .then(videoData => {
-          video.src = videoData.video_url;
+    fetch(`/get_merged_video/${videoTitle}/`)
+      .then(res => res.json())
+      .then(videoData => {
+        console.log('Merged video response:', videoData);  // Debug log
+        if (videoData.merged_video_url) {
+          video.src = videoData.merged_video_url;
+          video.load();
+          video.play();
+
+          // Isi transkrip
           document.getElementById('transcriptOutput').innerText = videoData.transcript || 'Tidak ada transkrip.';
           document.getElementById('transcriptInput').value = videoData.transcript || '';
-        });
-    }
+        } else {
+          alert('Gagal memuat video gabungan.');
+        }
+      })
+      .catch(err => {
+        console.error('Error fetch merged video:', err);
+        alert('Terjadi kesalahan saat memuat video.');
+      });
+  fetch(`/get_next_status/{{ video.folder_name }}/{{ video.title }}/`)
+    .then(res => res.json())
+    .then(data => {
+      const nextBtn = document.getElementById('nextButton');
+      if (!data.has_next) {
+        nextBtn.innerText = 'Finish';
+        nextBtn.onclick = function () {
+          window.location.href = '/';
+        };
+      }
+    });
   };
 
   video.onloadedmetadata = function () {
@@ -90,10 +119,23 @@
   };
 
   startHandle.addEventListener('input', () => {
-    const val = parseFloat(startHandle.value);
-    document.getElementById('startVal').textContent = val;
-    document.getElementById('startTime').value = val;
-    video.currentTime = val;
+    const start = parseFloat(startHandle.value);
+    const end = parseFloat(endHandle.value);
+
+    document.getElementById('startVal').textContent = start;
+    document.getElementById('startTime').value = start;
+
+    // Atur waktu & autoplay
+    video.currentTime = start;
+    video.play();
+
+    // Stop otomatis saat mencapai end
+    const interval = setInterval(() => {
+      if (video.currentTime >= end) {
+        video.pause();
+        clearInterval(interval);
+      }
+    }, 100);
   });
 
   endHandle.addEventListener('input', () => {
@@ -117,136 +159,104 @@
     }, 100);
   });
 
-  function uploadVideo() {
-    const fileInput = document.getElementById('videoFile');
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-
-    fetch('/upload_video/', {
-      method: 'POST',
-      body: formData
-    }).then(res => res.json()).then(data => {
-      videoId = data.video_id;
-      window.location.href = `/video_editor/?video_id=${videoId}`;
-    });
-  }
-
   function saveTranscript() {
     const newTranscript = document.getElementById('transcriptInput').value;
-    fetch(`/save_transcript/${videoId}/`, {
+    const newComments = document.getElementById('commentsInput').value;
+
+    fetch(`/save_transcript/${videoTitle}/`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({transcript: newTranscript})
+      body: JSON.stringify({ transcript: newTranscript, comments: newComments })
     }).then(() => {
       alert('Transkrip disimpan!');
       document.getElementById('transcriptOutput').innerText = newTranscript;
     });
   }
 
-  function trimVideo() {
-    const start = parseFloat(document.getElementById('startTime').value);
-    const end = parseFloat(document.getElementById('endTime').value);
-
-    if (isNaN(start) || isNaN(end)) {
-      return alert('Waktu tidak valid (harus angka)');
-    }
-
-    if (start >= end) {
-      return alert('Start time harus lebih kecil dari End time');
-    }
-
-    fetch(`/trim_video/${videoId}/`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ start_time: start, end_time: end })
-    }).then(() => alert('Video berhasil dipotong!'));
-  }
-
-  function mergeVideo() {
-    fetch(`/merge_videos/${videoId}/`).then(() => alert('Video digabung!'));
-  }
-
-  let isPreviewing = false;
-  let savedStart = 0;
-  let savedEnd = 0;
-
   function previewTrim() {
     const start = parseFloat(document.getElementById('startTime').value);
     const end = parseFloat(document.getElementById('endTime').value);
 
     if (isNaN(start) || isNaN(end) || start >= end) {
-      return alert('Waktu tidak valid');
+      alert('Waktu tidak valid');
+      return;
     }
-
-    // Simpan kondisi sebelum preview
-    savedStart = start;
-    savedEnd = end;
 
     video.currentTime = start;
     video.play();
-    isPreviewing = true;
 
     const interval = setInterval(() => {
       if (video.currentTime >= end) {
         video.pause();
         clearInterval(interval);
 
-        // Setelah preview selesai
-        const konfirmasi = confirm('Sudah yakin dengan potongan ini?');
-        if (konfirmasi) {
-          // Kalau klik OK setelah preview, AKTIFKAN tombol Trim
-          document.getElementById('trimButton').disabled = false;
-          alert('Silakan klik Trim untuk memotong video.');
-        } else {
-          alert('Silakan sesuaikan Start/End dulu.');
-          restoreSlider();
-          document.getElementById('trimButton').disabled = true; // Cancel, Trim tetap disable
-        }
-
-        isPreviewing = false;
+        // ✅ Aktifkan tombol trim
+        document.getElementById('trimButton').disabled = false;
       }
     }, 100);
   }
 
   function confirmTrim() {
-    if (isPreviewing) {
-      return; // Kalau masih preview, jangan trim
-    }
-
     const start = parseFloat(document.getElementById('startTime').value);
     const end = parseFloat(document.getElementById('endTime').value);
 
     if (isNaN(start) || isNaN(end) || start >= end) {
-      return alert('Waktu tidak valid');
+      alert('Waktu tidak valid');
+      return;
     }
 
-    // Setelah trim berhasil, disable lagi tombol Trim
-    fetch(`/trim_video/${videoId}/`, {
+    const confirmTrim = confirm(`Yakin ingin memotong video dari ${start.toFixed(2)}s ke ${end.toFixed(2)}s?\nTranskrip dan komentar juga akan disimpan.`);
+    if (!confirmTrim) return;
+
+    // ✅ Ambil transkrip dan komentar
+    const newTranscript = document.getElementById('transcriptInput').value;
+    const newComments = document.getElementById('commentsInput').value;
+
+    // ✅ Simpan transcript dan komentar dulu
+    fetch(`/save_transcript/${videoTitle}/`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ start_time: start, end_time: end })
-    }).then(() => {
-      alert('Video berhasil di-trim!');
-      document.getElementById('trimButton').disabled = true; // Reset lagi
-      location.reload(); // Reload untuk update tampilan
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript: newTranscript,
+        comments: newComments
+      })
+    })
+    .then(() => {
+      // ✅ Setelah sukses simpan, lanjut ke trim
+      return fetch(`/trim_video/${videoTitle}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_time: start, end_time: end })
+      });
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert('Transkrip disimpan dan video berhasil dipotong!');
+      console.log('Trimmed video path:', data.trimmed_video_url);
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      alert('Terjadi kesalahan saat menyimpan atau memotong video.');
     });
   }
 
-  function restoreSlider() {
-    // Balikkan nilai slider ke savedStart & savedEnd
-    if (slider) {
-      slider.noUiSlider.set([savedStart, savedEnd]);
-    }
-    document.getElementById('startVal').textContent = savedStart.toFixed(2);
-    document.getElementById('endVal').textContent = savedEnd.toFixed(2);
-    document.getElementById('startTime').value = savedStart;
-    document.getElementById('endTime').value = savedEnd;
-
-    video.currentTime = savedStart;
+  function goToNext() {
+    const folderName = "{{ video.folder_name }}";
+    window.location.href = `/search_video/${folderName}/`;
   }
 
-
-
+  function goToPrevious() {
+    // Cari video terakhir yang dianotasi oleh user ini di folder yg sama
+    fetch(`/get_previous_video/{{ video.folder_name }}/`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.previous_video_title) {
+          window.location.href = `/video_editor/${data.previous_video_title}/`;
+        } else {
+          alert('Tidak ada video sebelumnya.');
+        }
+      });
+  }
 </script>
 
 </body>

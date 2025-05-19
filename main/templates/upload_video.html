@@ -17,6 +17,7 @@
 <div class="upload-box">
   <h2>Upload Video Baru</h2>
   <input type="text" id="title" placeholder="Judul Video" required />
+  <input type="text" id="folder_name" placeholder="Tanggal video, contoh: 29_Januari_2020" required />
   <input type="file" id="videoFile" accept="video/*" required />
   <button onclick="uploadVideo()">Upload</button>
 </div>
@@ -25,15 +26,17 @@
 function uploadVideo() {
   const fileInput = document.getElementById('videoFile');
   const titleInput = document.getElementById('title');
+  const folderNameInput = document.getElementById('folder_name');
   
-  if (!fileInput.files[0] || !titleInput.value) {
-    alert('Lengkapi judul dan file video!');
+  if (!fileInput.files[0] || !titleInput.value || !folderNameInput.value) {
+    alert('Lengkapi judul, tanggal, dan file video!');
     return;
   }
 
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
-  formData.append('title', titleInput.value);
+  formData.append('video_title', titleInput.value);
+  formData.append('folder_name', folderNameInput.value);
 
   fetch('/upload_video/', {
     method: 'POST',
