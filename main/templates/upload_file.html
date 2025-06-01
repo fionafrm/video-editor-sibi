@@ -1,0 +1,94 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload File Video & Metadata</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f9f9f9;
+    }
+    .upload-box {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 400px;
+      text-align: center;
+    }
+    input[type="file"] {
+      display: block;
+      margin: 20px auto;
+    }
+    button {
+      background-color: #28a745;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .status {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="upload-box">
+  <h2>Upload File Excel</h2>
+  <form id="uploadForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" required>
+    <button type="submit">Upload</button>
+  </form>
+  <div class="status" id="statusText"></div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const fileInput = document.getElementById('fileInput');
+  const statusText = document.getElementById('statusText');
+
+  if (!fileInput.files.length) {
+    statusText.textContent = "Silakan pilih file terlebih dahulu.";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+
+  fetch('/upload_file/', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.message) {
+      statusText.style.color = 'green';
+      statusText.textContent = data.message;
+    } else {
+      statusText.style.color = 'red';
+      statusText.textContent = data.error || 'Terjadi kesalahan.';
+    }
+  })
+  .catch(err => {
+    statusText.style.color = 'red';
+    statusText.textContent = 'Gagal mengunggah file.';
+    console.error(err);
+  });
+});
+</script>
+
+</body>
+</html>

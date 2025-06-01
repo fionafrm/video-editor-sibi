@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    upload_video,
+    upload_file,
     trim_video,
     save_transcript,
     get_video_details,
@@ -16,14 +16,15 @@ from .views import (
     upload_transcript_page,
     landing_page,
     folder_page,
+    upload_file_page,
     register,
     login_view,
     logout_view
 )
 
 urlpatterns = [
-    # Upload video
-    path('upload_video/', upload_video, name='upload_video'),
+    # Upload file
+    path('upload_file/', upload_file, name='upload_file'),
 
     # Trim video berdasarkan video ID
     path('trim_video/<video_title>/', trim_video, name='trim_video'),
@@ -37,8 +38,8 @@ urlpatterns = [
     ## Ambil video yang sudah di-merge
     path('get_merged_video/<video_title>/', get_merged_video, name='get_merged_video'),
 
-    # Upload transkrip dalam format CSV
-    path('upload_transcript_csv/', upload_transcript_csv, name='upload_transcript_csv'),
+    # # Upload transkrip dalam format CSV
+    # path('upload_transcript_csv/', upload_transcript_csv, name='upload_transcript_csv'),
 
     # Merge video
     path('merge_videos/<video_title>/', merge_videos, name='merge_videos'),
@@ -64,6 +65,9 @@ urlpatterns = [
     path('get_previous_video/<folder_name>/', get_previous_video, name='get_previous_video'),
 
     path('get_next_status/<folder_name>/<current_title>/', get_next_video_status, name='get_next_status'),
+
+    path('upload_file_page/', upload_file_page, name='upload_file_page'),
+
 
 
     # Autentikasi

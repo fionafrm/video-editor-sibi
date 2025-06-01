@@ -78,7 +78,9 @@
         <form method="POST">
             {% csrf_token %}
             {{ form.as_p }}
-            <button type="submit">Register</button>
+            <label for="referral">Kode Referral (Opsional):</label>
+            <input type="text" name="referral" id="referral" placeholder="Masukkan kode jika ada">
+            <button type="submit">Daftar</button>
         </form>
 
         <div class="login-link">

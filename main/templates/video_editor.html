@@ -1,103 +1,52 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Video Editor</title>
-  <link href="https://cdn.jsdelivr.net/npm/nouislider@15.6.1/dist/nouislider.min.css" rel="stylesheet">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      margin: 0;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; margin: 0; }
+    .top-nav { display: flex; justify-content: space-between; align-items: center;
+               background-color: #f4f4f4; padding: 10px 20px; border-radius: 8px; margin-bottom: 20px; }
+    .main-content { display: flex; gap: 20px; }
+    .video-panel, .editor-panel { flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 16px; }
+    video { width: 100%; border-radius: 8px; }
+    textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+    .readonly-box { background: #f0f0f0; padding: 10px; border-radius: 5px; white-space: pre-wrap; height: 120px; overflow-y: auto; margin-bottom: 10px; }
+    .range-control label { font-weight: bold; display: block; margin-top: 10px; }
+    input[type=range] { width: 100%; }
+    .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .actions button { padding: 8px 12px; }
 
-    /* Navbar */
-    .top-nav {
+    nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background-color: #f4f4f4;
-      padding: 10px 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-
-    .nav-left a,
-    .nav-right a {
-      text-decoration: none;
-      font-weight: bold;
+      margin-bottom: 30px;
     }
 
     .nav-left a {
+      margin-right: 15px;
+      text-decoration: none;
       color: #0066cc;
+      font-weight: bold;
     }
 
     .nav-right a {
       color: red;
-    }
-
-    /* Main Layout */
-    .main-content {
-      display: flex;
-      gap: 20px;
-    }
-
-    .video-panel, .editor-panel {
-      flex: 1;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    video {
-      width: 100%;
-      border-radius: 8px;
-    }
-
-    textarea {
-      width: 100%;
-      height: 100px;
-    }
-
-    .readonly-box {
-      background: #f0f0f0;
-      padding: 10px;
-      border-radius: 5px;
-      white-space: pre-wrap;
-      height: 120px;
-      overflow-y: auto;
-      margin-bottom: 10px;
-    }
-
-    .range-control label {
+      text-decoration: none;
       font-weight: bold;
-      display: block;
-      margin-top: 10px;
-    }
-
-    input[type=range] {
-      width: 100%;
-    }
-
-    .actions {
-      margin-top: 16px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .actions button {
-      padding: 8px 12px;
     }
   </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
-<nav class="top-nav">
+<nav>
   <div class="nav-left">
     <a href="/">🏠 Home</a>
+    {% if request.user.is_superuser %}
+      <a href="{% url 'upload_file_page' %}">📤 Upload File</a>
+    {% endif %}
   </div>
   <div class="nav-right">
     <a href="{% url 'logout' %}">Logout</a>
@@ -108,30 +57,32 @@
 <div class="main-content">
   <div class="video-panel">
     <video id="videoPlayer" controls></video>
-  </div>
-
-  <div class="editor-panel">
-    <h2>Transkrip Audio Otomatis</h2>
-    <div id="transcriptOutput" class="readonly-box">{{ video.transcript|default:"Tidak ada transkrip." }}</div>
-
-    <h3>SIBI Sentence</h3>
-    <textarea id="transcriptInput">{{ video.transcript }}</textarea>
-
-    <h3>Komentar</h3>
-    <textarea id="commentsInput">{{ video.comments }}</textarea>
-
     <!-- Range -->
     <div class="range-control">
-      <label>Durasi Video:</label>
-      <label>Waktu video mulai:</label>
-      <input type="range" id="startHandle" step="0.01" value="0" />
       <label>Waktu video berakhir:</label>
       <input type="range" id="endHandle" step="0.01" value="0" />
       <div>Mulai: <span id="startVal">0</span>s | Berakhir: <span id="endVal">0</span>s</div>
     </div>
 
-    <input type="hidden" id="startTime" />
+    <input type="hidden" id="startTime" value="0" />
     <input type="hidden" id="endTime" />
+  </div>
+
+  <div class="editor-panel">
+    <h2>Transkrip Audio Otomatis</h2>
+    <div class="readonly-box">{{ automated_transcript|default:"Tidak ada transkrip." }}</div>
+
+    <h3>Alignment</h3>
+    <textarea id="alignmentInput">{{ transcript_alignment }}</textarea>
+
+    <h3>SIBI Sentence (Manual)</h3>
+    <textarea id="sibiInput">{{ sibi_sentence }}</textarea>
+
+    <h3>Potensi Masalah</h3>
+    <textarea id="problemInput">{{ potential_problem }}</textarea>
+
+    <h3>Komentar</h3>
+    <textarea id="commentInput">{{ comment }}</textarea>
 
     <div class="actions">
       <button onclick="saveTranscript()">Simpan Anotasi Saja</button>
@@ -143,11 +94,9 @@
   </div>
 </div>
 
-<!-- SCRIPT -->
 <script>
   let videoTitle = "{{ video.title }}";
   const video = document.getElementById('videoPlayer');
-  const startHandle = document.getElementById('startHandle');
   const endHandle = document.getElementById('endHandle');
 
   window.onload = function () {
@@ -158,9 +107,6 @@
           video.src = videoData.merged_video_url;
           video.load();
           video.play();
-
-          document.getElementById('transcriptOutput').innerText = videoData.transcript || 'Tidak ada transkrip.';
-          document.getElementById('transcriptInput').value = videoData.transcript || '';
         }
       });
 
@@ -170,120 +116,90 @@
         const nextBtn = document.getElementById('nextButton');
         if (!data.has_next) {
           nextBtn.innerText = '🏁 Selesai';
-          nextBtn.onclick = function () {
-            window.location.href = '/';
-          };
+          nextBtn.onclick = () => { window.location.href = '/'; };
         }
       });
   };
 
   video.onloadedmetadata = function () {
     const duration = video.duration;
-    startHandle.max = duration;
     endHandle.max = duration;
     endHandle.value = duration;
-
     document.getElementById('startVal').textContent = 0;
     document.getElementById('endVal').textContent = duration;
-    document.getElementById('startTime').value = 0;
     document.getElementById('endTime').value = duration;
   };
-
-  startHandle.addEventListener('input', () => {
-    const start = parseFloat(startHandle.value);
-    const end = parseFloat(endHandle.value);
-
-    document.getElementById('startVal').textContent = start;
-    document.getElementById('startTime').value = start;
-
-    video.currentTime = start;
-    video.play();
-
-    const interval = setInterval(() => {
-      if (video.currentTime >= end) {
-        video.pause();
-        clearInterval(interval);
-      }
-    }, 100);
-  });
 
   endHandle.addEventListener('input', () => {
     const val = parseFloat(endHandle.value);
     document.getElementById('endVal').textContent = val;
     document.getElementById('endTime').value = val;
-    video.currentTime = val;
-  });
 
-  endHandle.addEventListener('change', () => {
-    const start = parseFloat(startHandle.value);
-    const end = parseFloat(endHandle.value);
-    video.currentTime = start;
+    video.currentTime = 0;
     video.play();
-
     const interval = setInterval(() => {
-      if (video.currentTime >= end) {
-        video.pause();
-        clearInterval(interval);
+      if (video.currentTime >= val) {
+        video.pause(); clearInterval(interval);
       }
     }, 100);
   });
 
   function saveTranscript() {
-    const newTranscript = document.getElementById('transcriptInput').value;
-    const newComments = document.getElementById('commentsInput').value;
+    const alignment = document.getElementById('alignmentInput').value;
+    const sibi_sentence = document.getElementById('sibiInput').value;
+    const problem = document.getElementById('problemInput').value;
+    const comment = document.getElementById('commentInput').value;
 
     fetch(`/save_transcript/${videoTitle}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: newTranscript, comments: newComments })
-    }).then(() => {
-      alert('Transkrip disimpan!');
-      document.getElementById('transcriptOutput').innerText = newTranscript;
-    });
+      body: JSON.stringify({
+        transcript_alignment: alignment,
+        sibi_sentence: sibi_sentence,
+        potential_problem: problem,
+        comment: comment
+      })
+    }).then(() => alert('Data disimpan!'));
   }
 
   function previewTrim() {
-    const start = parseFloat(document.getElementById('startTime').value);
+    const start = 0;
     const end = parseFloat(document.getElementById('endTime').value);
-
-    if (isNaN(start) || isNaN(end) || start >= end) {
-      alert('Waktu tidak valid');
-      return;
-    }
-
+    if (isNaN(end) || start >= end) return alert('Waktu tidak valid');
     video.currentTime = start;
     video.play();
-
     const interval = setInterval(() => {
       if (video.currentTime >= end) {
-        video.pause();
-        clearInterval(interval);
+        video.pause(); clearInterval(interval);
         document.getElementById('trimButton').disabled = false;
       }
     }, 100);
   }
 
   function confirmTrim() {
-    const start = parseFloat(document.getElementById('startTime').value);
+    const start = 0;
     const end = parseFloat(document.getElementById('endTime').value);
+    if (isNaN(end) || start >= end) return alert('Waktu tidak valid');
 
-    if (isNaN(start) || isNaN(end) || start >= end) {
-      alert('Waktu tidak valid');
-      return;
-    }
+    const alignment = document.getElementById('alignmentInput')?.value || '';
+    const sibi_sentence = document.getElementById('sibiInput')?.value || '';
+    const problem = document.getElementById('problemInput')?.value || '';
+    const comment = document.getElementById('commentInput')?.value || '';
 
-    const confirmTrim = confirm(`Yakin ingin memotong video dari ${start.toFixed(2)}s ke ${end.toFixed(2)}s?\nTranskrip dan komentar juga akan disimpan.`);
-    if (!confirmTrim) return;
-
-    const newTranscript = document.getElementById('transcriptInput').value;
-    const newComments = document.getElementById('commentsInput').value;
-
+    // Simpan semua perubahan terlebih dahulu
     fetch(`/save_transcript/${videoTitle}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: newTranscript, comments: newComments })
+      body: JSON.stringify({
+        transcript_alignment: alignment,
+        sibi_sentence: sibi_sentence,
+        potential_problem: problem,
+        comment: comment
+      })
     })
-    .then(() => {
+    .then(res => {
+      if (!res.ok) throw new Error('Gagal menyimpan anotasi');
+      // Setelah berhasil menyimpan, baru potong video
       return fetch(`/trim_video/${videoTitle}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -292,18 +208,16 @@
     })
     .then(res => res.json())
     .then(data => {
-      alert('Transkrip disimpan dan video berhasil dipotong!');
-      console.log('Trimmed video path:', data.trimmed_video_url);
+      alert('Berhasil menyimpan dan memangkas video!');
     })
     .catch(err => {
-      console.error('Error:', err);
-      alert('Terjadi kesalahan saat menyimpan atau memotong video.');
+      alert('Gagal menyimpan atau memotong video!');
+      console.error(err);
     });
   }
 
   function goToNext() {
-    const folderName = "{{ video.folder_name }}";
-    window.location.href = `/search_video/${folderName}/`;
+    window.location.href = `/search_video/{{ video.folder_name }}/`;
   }
 
   function goToPrevious() {
