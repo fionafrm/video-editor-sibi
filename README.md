@@ -21,7 +21,7 @@
 - title : Judul yang nantinya diberikan kalau sudah approve. Bersifat nullable.
 - file : File dari video
 - transcript : Ketika diunggah pertama kali oleh mesin, akan berisi transkrip otomatis. Namun, jika sudah dianotasikan oleh anotator, maka akan berisi transkrip final. Bersifat nullable karena fungsi mengunggah video dan transkrip berbeda.
-- comments : Komentar anotator untuk penyelarasan (kolom E di Spreadsheets)
+- comment : Komentar anotator untuk penyelarasan (kolom E di Spreadsheets)
 - created_at = Auto add waktu membuat objek video.
 
 ### Model Edited Video
@@ -30,7 +30,7 @@
 - start_time : Waktu dimulainya pemotongan video
 - end_time : Waktu berakhirnya pemotongan video
 - transcript : Transkrip yang dimasukan oleh anotator
-- comments : Komentar anotator untuk penyelarasan (kolom E di Spreadsheets)
+- comment : Komentar anotator untuk penyelarasan (kolom E di Spreadsheets)
 - created_at : Auto add waktu membuat objek edited video
 
 ### How to Test it out?

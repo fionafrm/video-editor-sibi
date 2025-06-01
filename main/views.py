@@ -14,7 +14,7 @@ from django.contrib import messages
 import os
 import json
 import csv
-from .models import Video, EditedVideo
+from .models import Video
 import logging
 from collections import defaultdict
 
@@ -154,31 +154,27 @@ def trim_video(request, video_title):
 def save_transcript(request, video_title):
     if request.method == 'POST':
         data = json.loads(request.body)
-        transcript = data.get('transcript')
-        comments = data.get('comments')
-
         video = get_object_or_404(Video, title=video_title)
 
-        if transcript is not None:
-            video.transcript = transcript
-        if comments is not None:
-            video.comments = comments
+        transcript_alignment = data.get('transcript_alignment')
+        sibi_sentence = data.get('sibi_sentence')
+        potential_problem = data.get('potential_problem')
+        comment = data.get('comment')
 
-        # Tandai sebagai sudah dianotasi
+        if transcript_alignment is not None:
+            video.transcript_alignment = transcript_alignment
+        if sibi_sentence is not None:
+            video.sibi_sentence = sibi_sentence
+        if potential_problem is not None:
+            video.potential_problem = potential_problem
+        if comment is not None:
+            video.comment = comment
+
         video.is_annotated = True
         video.annotated_by = request.user
         video.save()
 
-        # Simpan transkrip juga ke file (opsional)
-        transcript_dir = os.path.join(settings.MEDIA_ROOT, 'transcripts')
-        os.makedirs(transcript_dir, exist_ok=True)
-
-        transcript_path = os.path.join(transcript_dir, f'video_{video.id}.txt')
-        with open(transcript_path, 'w', encoding='utf-8') as f:
-            f.write(transcript or '')
-
-        return JsonResponse({'message': 'Transcript and comments updated successfully'})
-    
+        return JsonResponse({'message': 'Data disimpan'})
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
@@ -190,7 +186,7 @@ def get_video_details(request, video_title):
     return JsonResponse({
         'video_url': video.file.url ,
         'transcript': video.transcript,
-        'comments': video.comments
+        'comment': video.comment
     })
 
 @csrf_exempt
@@ -203,7 +199,7 @@ def get_merged_video(request, video_title):
         return JsonResponse({
             'merged_video_url': merged_video_url,
             'transcript': video.transcript,
-            'comments': video.comments
+            'comment': video.comment
         })
 
     # Jika belum ada hasil merge, lakukan merge dulu
@@ -216,7 +212,7 @@ def get_merged_video(request, video_title):
         return JsonResponse({
             'merged_video_url': merged_video_url,
             'transcript': video.transcript,
-            'comments': video.comments
+            'comment': video.comment
         })
 
     # Kalau merge gagal, return responsenya langsung
@@ -260,6 +256,121 @@ def upload_transcript_csv(request):
         return JsonResponse({'message': 'Transcript uploaded successfully.'})
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+@csrf_exempt
+@login_required
+def upload_file(request):
+    """Mengunggah file Excel dengan link Google Drive di hyperlink kolom A"""
+    if request.method == 'POST' and request.FILES.get('file'):
+        file = request.FILES['file']
+        ext = file.name.split('.')[-1]
+        tmp_path = default_storage.save(f"temp/{file.name}", file)
+
+        try:
+            import pandas as pd
+            import requests
+            import re
+            import openpyxl
+            from io import BytesIO
+            from django.contrib.auth.models import User
+
+            file_path = default_storage.path(tmp_path)
+
+            # Baca isi tabel ke DataFrame
+            df = pd.read_excel(file_path)
+
+            # Baca workbook untuk ambil hyperlink kolom A
+            wb = openpyxl.load_workbook(file_path)
+            ws = wb.active
+
+            # Ambil hyperlink dari kolom A (A2, A3, ...)
+            drive_links = []
+            for row in ws.iter_rows(min_row=2):  # skip header
+                cell = row[0]  # kolom A
+                link = cell.hyperlink.target if cell.hyperlink else (cell.value or "")
+                drive_links.append(link)
+
+            count = 1
+            for idx, row in df.iterrows():
+                try:
+                    link = str(drive_links[idx]).strip()
+                    video_title_raw = str(row['Nama Data']).strip()
+
+                    if not link or 'drive.google.com' not in link or not video_title_raw:
+                        print(f"[SKIP] Baris {idx+2}: link/video_title kosong atau invalid.")
+                        continue
+
+                    video_title = f"{video_title_raw}.mp4"
+                    folder_name = "_".join(video_title_raw.split("_")[:-1])
+
+                    # Ambil metadata lain
+                    automated_transcript = str(row.get('Transkripsi Suara secara Otomatis oleh Sistem', '')).strip()
+                    transcript_alignment = str(row.get('Penyelarasan Suara/Teks Transkripsi dan Gerakan Bahasa Isyarat', '')).strip()
+                    sibi_sentence = str(row.get('Kalimat yang Diperagakan', '')).strip()
+                    potential_problem = str(row.get('Potensi Masalah', '')).strip()
+                    comment = str(row.get('Keterangan Annotator', '')).strip()
+                    username = str(row.get('Nama Annotator', '')).strip()
+                    is_annotated = str(row.get('Hasil Alignment (NEW)', '')).strip().lower() in ['1', 'true', 'yes']
+
+                    try:
+                        user = User.objects.get(username=username)
+                    except User.DoesNotExist:
+                        user = None
+
+                    # Ambil file ID dari link
+                    match = re.search(r'/d/([^/]+)', link)
+                    if not match:
+                        print(f"[SKIP] Baris {idx+2}: Gagal ekstrak file ID dari link")
+                        continue
+                    file_id = match.group(1)
+                    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+                    # Unduh video
+                    response = requests.get(download_url)
+                    if response.status_code != 200:
+                        print(f"[SKIP] Baris {idx+2}: Gagal download video (status {response.status_code})")
+                        continue
+
+                    # Simpan ke folder yang sesuai
+                    videos_dir = os.path.join('videos', folder_name)
+                    raw_dir = os.path.join('raw_videos', folder_name)
+                    os.makedirs(os.path.join(settings.MEDIA_ROOT, videos_dir), exist_ok=True)
+                    os.makedirs(os.path.join(settings.MEDIA_ROOT, raw_dir), exist_ok=True)
+
+                    final_video_path = os.path.join(videos_dir, video_title)
+                    raw_video_path = os.path.join(raw_dir, video_title)
+
+                    final_path = default_storage.save(final_video_path, ContentFile(response.content))
+                    default_storage.save(raw_video_path, ContentFile(response.content))
+
+                    # Simpan ke DB
+                    Video.objects.create(
+                        title=video_title,
+                        folder_name=folder_name,
+                        file=final_path,
+                        automated_transcript=automated_transcript,
+                        transcript_alignment=transcript_alignment,
+                        sibi_sentence=sibi_sentence,
+                        potential_problem=potential_problem,
+                        comment=comment,
+                        annotated_by=user,
+                        is_annotated=is_annotated
+                    )
+
+                    count += 1
+
+                except Exception as e:
+                    print(f"[ERROR] Baris {idx+2}: {str(e)}")
+
+            return JsonResponse({'message': f'Upload selesai. {count-1} video diproses.'})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
 
 
 @csrf_exempt
@@ -314,13 +425,30 @@ def get_previous_video(request, folder_name):
 def register(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
+        referral_code = request.POST.get('referral', '').strip()
+
+        ADMIN_CODE = 'RAHASIAADMIN2025' # Referral untuk admin
+
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Your account has been created!')
+            user = form.save(commit=False)
+
+            if referral_code == ADMIN_CODE:
+                user.is_staff = True
+                user.is_superuser = True
+                role_msg = 'Admin'
+            else:
+                user.is_staff = False
+                user.is_superuser = False
+                role_msg = 'Annotator'
+
+            user.save()
+            messages.success(request, f'Akun berhasil dibuat sebagai {role_msg}!')
             return redirect('login')
     else:
         form = UserCreationForm()
+
     return render(request, 'register.html', {'form': form})
+
 
 def login_view(request):
     if request.method == 'POST':
@@ -339,6 +467,7 @@ def logout_view(request):
 
 """KHUSUS UNTUK PAGE"""
 
+@csrf_exempt
 @login_required
 def landing_page(request):
     """ Menampilkan halaman landing page dengan folder-folder """
@@ -364,6 +493,7 @@ def landing_page(request):
 
     return render(request, 'landing_page.html', {'folders': folder_info})
 
+@csrf_exempt
 @login_required
 def folder_page(request, folder_name):
     """ Menampilkan halaman folder dengan daftar video di dalamnya """
@@ -371,15 +501,39 @@ def folder_page(request, folder_name):
     
     return render(request, 'folder_page.html', {'folder_name': folder_name, 'videos': videos})
 
+@csrf_exempt
 @login_required
 def video_editor_page(request, video_title):
     video = get_object_or_404(Video, title=video_title)
-    return render(request, 'video_editor.html', {'video': video})
 
+    context = {
+        'video': video,
+        'automated_transcript': video.automated_transcript,
+        'transcript_alignment': video.transcript_alignment,
+        'sibi_sentence': video.sibi_sentence,
+        'potential_problem': video.potential_problem,
+        'comment': video.comment,
+        'annotated_by': video.annotated_by.username if video.annotated_by else '-',
+        'is_annotated': video.is_annotated,
+        'created_at': video.created_at,
+    }
+
+    return render(request, 'video_editor.html', context)
+
+@csrf_exempt
 @login_required
 def upload_video_page(request):
     return render(request, 'upload_video.html')
 
+@csrf_exempt
 @login_required
 def upload_transcript_page(request):
     return render(request, 'upload_transcript.html')
+
+@csrf_exempt
+@login_required
+def upload_file_page(request):
+    if not request.user.is_superuser:
+        return redirect('landing_page')
+    return render(request, 'upload_file.html')
+
