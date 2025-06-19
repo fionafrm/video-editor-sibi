@@ -483,12 +483,14 @@ def landing_page(request):
     for folder_name, videos in folder_dict.items():
         total = len(videos)
         annotated = sum(1 for v in videos if v.is_annotated)
+        # display_name = format_folder_display(folder_name)
         all_done = (annotated == total)
         folder_info.append({
             'name': folder_name,
             'annotated': annotated,
             'total': total,
-            'all_done': all_done
+            'all_done': all_done,
+            # 'display_name': display_name
         })
 
     return render(request, 'landing_page.html', {'folders': folder_info})
@@ -498,6 +500,7 @@ def landing_page(request):
 def folder_page(request, folder_name):
     """ Menampilkan halaman folder dengan daftar video di dalamnya """
     videos = Video.objects.filter(folder_name=folder_name)
+    # display_name = format_folder_display(folder_name)
     
     return render(request, 'folder_page.html', {'folder_name': folder_name, 'videos': videos})
 
@@ -537,3 +540,62 @@ def upload_file_page(request):
         return redirect('landing_page')
     return render(request, 'upload_file.html')
 
+# ENHANCED USER INTERFACE
+
+@csrf_exempt
+@login_required
+def format_folder_display(name):
+    """ Format nama folder untuk tampilan yang lebih user-friendly """
+    try:
+        parts = name.split('_')
+        lembaga = parts[0]
+        jenis = 'SIBI' if parts[1] == 'SB' else parts[1]
+        tanggal_str = parts[2]  # e.g: 290120
+
+        # Formating tanggal
+        day = tanggal_str[0:2]
+        month = tanggal_str[2:4]
+        year = '20' + tanggal_str[4:6]
+        tanggal_format = f"{day}/{month}/{year}"
+
+        return f'{lembaga} - {jenis} - {tanggal_format}'
+    except Exception:
+        return name # Kalo misalnya format namanya ga sesuai
+
+@csrf_exempt
+@login_required
+def landing_page_data(request):
+    """ Menampilkan halaman landing page dengan folder-folder """
+    all_videos = Video.objects.all()
+    folder_dict = defaultdict(list)
+
+    # Kelompokkan video berdasarkan folder_name
+    for video in all_videos:
+        folder_dict[video.folder_name].append(video)
+
+    # Buat list folder dengan status annotasi
+    folder_info = []
+    for folder_name, videos in folder_dict.items():
+        total = len(videos)
+        annotated = sum(1 for v in videos if v.is_annotated)
+        # display_name = format_folder_display(str(folder_name))
+        all_done = (annotated == total)
+        folder_info.append({
+            'name': folder_name,
+            'annotated': annotated,
+            'total': total,
+            'all_done': all_done,
+            # 'display_name': display_name,
+        })
+
+    return JsonResponse({
+        'folders': [
+            {
+                'name': folder['name'],
+                'annotated': folder['annotated'],
+                'total': folder['total'],
+                'all_done': folder['all_done'],
+                # 'display_name': folder['display_name'],
+            } for folder in folder_info
+        ]
+    })

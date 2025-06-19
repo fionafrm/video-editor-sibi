@@ -17,6 +17,7 @@ from .views import (
     landing_page,
     folder_page,
     upload_file_page,
+    landing_page_data,
     register,
     login_view,
     logout_view
@@ -67,6 +68,9 @@ urlpatterns = [
     path('get_next_status/<folder_name>/<current_title>/', get_next_video_status, name='get_next_status'),
 
     path('upload_file_page/', upload_file_page, name='upload_file_page'),
+
+    # Data untuk halaman landing
+    path('landing_page_data/', landing_page_data, name='landing_page_data'),
 
 
 
