@@ -483,6 +483,19 @@ def landing_page(request):
     for folder_name, videos in folder_dict.items():
         total = len(videos)
         annotated = sum(1 for v in videos if v.is_annotated)
+        # Untuk display nama folder
+        parts = folder_name.split('_')
+        lembaga = parts[0]
+        jenis = 'SIBI' if parts[1] == 'SB' else parts[1]
+        tanggal_str = parts[2]  # e.g: 290120
+
+        # Formating tanggal
+        day = tanggal_str[0:2]
+        month = tanggal_str[2:4]
+        year = '20' + tanggal_str[4:6]
+        tanggal_format = f"{day}/{month}/{year}"
+        display_name = f'{lembaga} - {jenis} - {tanggal_format}'
+
         # display_name = format_folder_display(folder_name)
         all_done = (annotated == total)
         folder_info.append({
@@ -490,7 +503,7 @@ def landing_page(request):
             'annotated': annotated,
             'total': total,
             'all_done': all_done,
-            # 'display_name': display_name
+            'display_name': display_name
         })
 
     return render(request, 'landing_page.html', {'folders': folder_info})
