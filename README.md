@@ -1,41 +1,75 @@
-# Video Editor SIBI
+# Django Video Annotation System
 
-### To Do:
-- [x] Prep env dan Model Video BE
-- [x] Transkripsi otomatis BE
-- [x] Kalimat yang diperagakan BE
-- [] Penyelarasan (kolom E) BE
-- [] Button Cut FE
-- [] Button OK FE
-- [] Button Prev/Next FE
-- [] Show videos FE
-- [x] upload batch BE
-- [] Preview video after tekan cut (jadi nanti kalo pilih opsi cancel, video nya kembali ke yang awal) BE dan FE
-- [] Necessary FE
-- [x] upload text bareng video BE
-- [] auth BE
-- [] Pilihan tanggal FE
-- [] Home FE
+Sistem ini adalah platform berbasis Django untuk manajemen, pengunggahan, penggabungan, pemotongan, dan anotasi video. Sangat cocok untuk proyek yang melibatkan transkripsi otomatis dan penerjemahan Bahasa Isyarat Indonesia (SIBI dan BISINDO).
 
-### Model Video
-- title : Judul yang nantinya diberikan kalau sudah approve. Bersifat nullable.
-- file : File dari video
-- transcript : Ketika diunggah pertama kali oleh mesin, akan berisi transkrip otomatis. Namun, jika sudah dianotasikan oleh anotator, maka akan berisi transkrip final. Bersifat nullable karena fungsi mengunggah video dan transkrip berbeda.
-- comment : Komentar anotator untuk penyelarasan (kolom E di Spreadsheets)
-- created_at = Auto add waktu membuat objek video.
+## 🚀 Fitur Utama
 
-### Model Edited Video
-- original_video : Foreign Key yang merujuk ke video asli. Video asli masih tersimpan.
-- file : File dari Edited Video
-- start_time : Waktu dimulainya pemotongan video
-- end_time : Waktu berakhirnya pemotongan video
-- transcript : Transkrip yang dimasukan oleh anotator
-- comment : Komentar anotator untuk penyelarasan (kolom E di Spreadsheets)
-- created_at : Auto add waktu membuat objek edited video
+- 📤 **Upload Video**: Unggah video mentah dan versi final secara otomatis.
+- ✂️ **Trim Video**: Potong bagian video berdasarkan waktu mulai dan akhir.
+- 🔗 **Merge Video**: Gabungkan dua video berurutan berdasarkan penamaan.
+- 🧠 **Anotasi**: Tambahkan transkrip, alignment teks dan isyarat, serta komentar.
+- 📦 **Import CSV/Excel**: Unggah data massal dari file dengan metadata dan link Google Drive.
+- 👥 **Autentikasi**: Role-based access untuk Admin dan Annotator.
+- 🔍 **Navigasi Pintar**: Mendeteksi video berikutnya atau sebelumnya yang belum/telah dianotasi.
+- 📂 **Tampilan Folder**: Lihat progres anotasi per folder.
 
-### How to Test it out?
-Untuk melakukan testing, saya menggunakan Postman. Video demo akan diunggah di YouTube. Berikut linknya: https://youtu.be/oyA5MXbW0sY
+---
 
-## Cara Penggunaan
+## 🗃️ Struktur Model
 
-### Upload Video
+Model `Video` memiliki atribut:
+
+- `title`, `folder_name`, `file`
+- `automated_transcript`, `transcript_alignment`, `sibi_sentence`, `potential_problem`, `comment`
+- `transcript`, `is_annotated`, `annotated_by`, `merged_video_path`, `created_at`
+
+---
+
+## 🔗 API & Routing Penting
+
+| Endpoint | Method | Keterangan |
+|----------|--------|------------|
+| `/upload_video/` | POST | Upload video baru |
+| `/merge_videos/<video_title>/` | GET | Gabungkan video dengan urutan selanjutnya |
+| `/trim_video/<video_title>/` | POST | Potong video berdasarkan waktu |
+| `/save_transcript/<video_title>/` | POST | Simpan transkrip & anotasi |
+| `/get_video_details/<video_title>/` | GET | Ambil info video |
+| `/get_merged_video/<video_title>/` | GET | Ambil video hasil merge |
+| `/upload_transcript_csv/` | POST | Upload transkrip dari CSV |
+| `/upload_file/` | POST | Upload metadata dari file Excel |
+| `/delete_video/<video_title>/` | DELETE | Hapus video |
+| `/get_next_video_status/<folder>/<current_title>/` | GET | Cek video belum dianotasi berikutnya |
+| `/get_previous_video/<folder>/` | GET | Ambil video sebelumnya (oleh user) |
+| `/search_videos/<folder>/` | GET | Redirect ke video belum dianotasi |
+| `/landing_page/` | GET | Halaman utama folder |
+| `/folder_page/<folder>/` | GET | Daftar video dalam folder |
+| `/video_editor/<video_title>/` | GET | Halaman anotasi video |
+
+---
+
+## ⚙️ Instalasi
+
+### 1. Buat sebuah folder baru
+### 2. Clone repository
+1. Salin URL berikut
+	`https://github.com/fionafrm/video-editor-sibi.git`
+3. _Clone_ Repositori ke Komputer Lokal
+	- Buka terminal atau _command prompt_ di folder yang telah kamu buat sebelumnya.
+	- Jalankan perintah `git clone https://github.com/fionafrm/video-editor-sibi.git`
+### 3. Membuat Virtual Environment Python
+- Windows:
+`python -m venv env`
+- Unix (macOS, Linux):
+`python3 -m venv env`
+### 4. Aktifkan virtual environment
+- Windows :
+
+		env\Scripts\activate
+
+- Unix (Mac/Linux):
+
+		source env/bin/activate
+
+### 5. Install dependencies yang diperlukan
+
+`pip install -r requirements.txt`

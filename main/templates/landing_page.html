@@ -86,7 +86,7 @@
 <div class="folder-container">
   {% for folder in folders %}
     <div class="folder" onclick="window.location.href='{% url 'search_video' folder_name=folder.name %}'">
-      <h3>{{ folder.name }}</h3>
+      <h3>{{ folder.display_name }}</h3>
       <p>
         {% if folder.all_done %}
           ✅ Sudah selesai ({{ folder.annotated }}/{{ folder.total }})
