@@ -277,7 +277,7 @@ def upload_file(request):
             file_path = default_storage.path(tmp_path)
 
             # Baca isi tabel ke DataFrame
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, engine='openpyxl')
 
             # Baca workbook untuk ambil hyperlink kolom A
             wb = openpyxl.load_workbook(file_path)

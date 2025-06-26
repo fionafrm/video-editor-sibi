@@ -57,10 +57,13 @@ Model `Video` memiliki atribut:
 	- Buka terminal atau _command prompt_ di folder yang telah kamu buat sebelumnya.
 	- Jalankan perintah `git clone https://github.com/fionafrm/video-editor-sibi.git`
 ### 3. Membuat Virtual Environment Python
-- Windows:
-`python -m venv env`
-- Unix (macOS, Linux):
-`python3 -m venv env`
+- Windows :
+
+		python -m venv env
+
+- Unix (Mac/Linux):
+
+		python3 -m venv env
 ### 4. Aktifkan virtual environment
 - Windows :
 
@@ -69,7 +72,28 @@ Model `Video` memiliki atribut:
 - Unix (Mac/Linux):
 
 		source env/bin/activate
-
+a
 ### 5. Install dependencies yang diperlukan
 
 `pip install -r requirements.txt`
+
+### 6. Melakukan migrasi agar terbentuk db.sqlite3
+
+- Membuat File Migrasi:
+
+		python manaage.py makemigrations
+
+- Melakukan migrasi model:
+
+		python manaage.py makemigrations
+
+### 7. Jalankan aplikasi
+
+`python manage.py runserver`
+
+### 8. Buat akun
+
+- Tekan 'Daftar disini'
+- Masukkan username Anda, contoh fiona.ratu
+- Masukkan password Anda dan ketik ulang password Anda
+- Masukkan kode referral yang diberikan oleh admin jika ingin memiliki role Admin
