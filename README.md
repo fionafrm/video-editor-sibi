@@ -72,7 +72,7 @@ Model `Video` memiliki atribut:
 - Unix (Mac/Linux):
 
 		source env/bin/activate
-
+a
 ### 5. Install dependencies yang diperlukan
 
 `pip install -r requirements.txt`
