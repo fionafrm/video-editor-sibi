@@ -180,6 +180,7 @@
     const start = 0;
     const end = parseFloat(document.getElementById('endTime').value);
     if (isNaN(end) || start >= end) return alert('Waktu tidak valid');
+    document.getElementById('trimButton').disabled = true;
 
     const alignment = document.getElementById('alignmentInput')?.value || '';
     const sibi_sentence = document.getElementById('sibiInput')?.value || '';
