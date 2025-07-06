@@ -138,6 +138,35 @@ def trim_video(request, video_title):
             final_output_path = video.file.path
             trimmed_clip.write_videofile(final_output_path, codec="libx264", audio_codec="aac")
 
+            # After trimming, merge remainder with next video
+            try:
+                # Extract remainder from original raw clip
+                remainder_clip = clip.subclip(end_time, duration)
+                # Determine next videos in sequence
+                parts = video.title.replace('.mp4', '').split('_')
+                current_seq = int(parts[-1])
+                base = '_'.join(parts[:-1])
+                # First next video
+                next_title1 = f"{base}_{current_seq+1:04d}.mp4"
+                next_video1 = Video.objects.filter(title=next_title1).first()
+                if next_video1:
+                    clips = [remainder_clip, VideoFileClip(next_video1.file.path)]
+                    # Check second next video
+                    next_title2 = f"{base}_{current_seq+2:04d}.mp4"
+                    next_video2 = Video.objects.filter(title=next_title2).first()
+                    if next_video2:
+                        clips.append(VideoFileClip(next_video2.file.path))
+                    merged_next_clip = concatenate_videoclips(clips)
+                    # Save merged result for next_video1
+                    merged_fname = f"merged_remainder_{parts[0]}_{parts[-1]}_{next_video1.title}"
+                    merged_path = os.path.join('edited_videos', merged_fname)
+                    os.makedirs(os.path.join(settings.MEDIA_ROOT, 'edited_videos'), exist_ok=True)
+                    merged_next_clip.write_videofile(default_storage.path(merged_path), codec="libx264")
+                    next_video1.merged_video_path = merged_path
+                    next_video1.save()
+            except Exception as merge_e:
+                logger.error(f"Error merging remainder with next video: {str(merge_e)}")
+
             return JsonResponse({
                 'message': 'Video trimmed and saved successfully.',
                 'trimmed_video_url': video.file.url
