@@ -1,0 +1,21 @@
+version: "3.3"
+
+services:
+  video_annotation_app:
+    build: .
+    container_name: video_annotation_app
+    restart: unless-stopped
+    ports:
+      - 8082:8000
+    volumes:
+      - ./media:/app/media
+      - ./static:/app/static
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-this}
+    networks:
+      - video_annotation_network
+
+networks:
+  video_annotation_network:
+    driver: bridge
