@@ -56,10 +56,6 @@ def profile(request):
     user_projects = Video.objects.filter(annotated_by=user).count() if user.is_authenticated else 0
     user_annotations = Video.objects.filter(annotated_by=user, is_annotated=True).count() if user.is_authenticated else 0
     
-    # Calculate accuracy (percentage of annotations completed by this user)
-    total_videos = Video.objects.count()
-    accuracy_percentage = round((user_annotations / total_videos * 100), 1) if total_videos > 0 else 0
-    
     # Determine role
     if user.is_superuser:
         role = "Admin"
@@ -73,7 +69,6 @@ def profile(request):
         'role': role,
         'user_projects': user_projects,
         'user_annotations': user_annotations,
-        'accuracy_percentage': accuracy_percentage,
     }
     
     return render(request, "profile.html", context)
