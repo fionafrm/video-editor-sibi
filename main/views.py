@@ -11,6 +11,12 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+import pandas as pd
+import requests
+import re
+import openpyxl
+from io import BytesIO
+from django.contrib.auth.models import User
 import os
 import json
 import csv
@@ -18,6 +24,7 @@ from .models import Video
 import logging
 from collections import defaultdict
 
+logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @login_required
@@ -48,8 +55,6 @@ def upload_video(request):
         return JsonResponse({'message': 'Video uploaded successfully', 'video_title': video_title})
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
-
-logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @login_required
@@ -296,12 +301,6 @@ def upload_file(request):
         tmp_path = default_storage.save(f"temp/{file.name}", file)
 
         try:
-            import pandas as pd
-            import requests
-            import re
-            import openpyxl
-            from io import BytesIO
-            from django.contrib.auth.models import User
 
             file_path = default_storage.path(tmp_path)
 
