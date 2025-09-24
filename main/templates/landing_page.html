@@ -72,6 +72,7 @@
 
 <nav>
   <div class="nav-left">
+    <a href="{% url 'dashboard' %}">📊 Dashboard</a>
     {% if request.user.is_superuser %}
       <a href="{% url 'upload_file_page' %}">📤 Upload File</a>
     {% endif %}
