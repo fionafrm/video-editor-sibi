@@ -37,6 +37,51 @@
       text-decoration: none;
       font-weight: bold;
     }
+
+    /* Status Anotasi Styling */
+    .annotation-status {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .annotation-status h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #495057;
+      font-size: 1.1rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .status-completed {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status-pending {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+
+    .annotator-info {
+      margin-top: 8px;
+      margin-bottom: 0;
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
   </style>
 </head>
 <body>
@@ -69,6 +114,23 @@
   </div>
 
   <div class="editor-panel">
+    <!-- Status Anotasi -->
+    <div class="annotation-status">
+      <h3>Status Anotasi</h3>
+      {% if video.is_annotated %}
+        <div class="status-badge status-completed">
+          <span class="status-text">Sudah Dianotasi</span>
+        </div>
+      {% else %}
+        <div class="status-badge status-pending">
+          <span class="status-text">Belum Dianotasi</span>
+        </div>
+      {% endif %}
+      {% if video.annotated_by %}
+        <p class="annotator-info">Dianotasi oleh: <strong>{{ video.annotated_by.get_full_name|default:video.annotated_by.username }}</strong></p>
+      {% endif %}
+    </div>
+
     <h2>Transkrip Audio Otomatis</h2>
     <div class="readonly-box">{{ automated_transcript|default:"Tidak ada transkrip." }}</div>
 
