@@ -20,8 +20,13 @@ from .views import (
     landing_page_data,
     register,
     login_view,
-    logout_view
+    logout_view,
+    forgot_password,
+    reset_password,
+    change_password
 )
+
+app_name = 'main'
 
 urlpatterns = [
     # Upload file
@@ -78,5 +83,10 @@ urlpatterns = [
     path('register/', register, name='register'),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
+    
+    # Password Management
+    path('forgot-password/', forgot_password, name='forgot_password'),
+    path('reset-password/<uidb64>/<token>/', reset_password, name='reset_password'),
+    path('change-password/', change_password, name='change_password'),
 
 ]

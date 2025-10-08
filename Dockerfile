@@ -17,6 +17,8 @@ COPY . .
 # Collect static files for production
 RUN python manage.py collectstatic --noinput
 
+RUN python manage.py migrate --noinput
+
 EXPOSE 8000
 
 # Run Django server (FastAPI style command structure)

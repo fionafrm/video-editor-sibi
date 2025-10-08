@@ -28,7 +28,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost","127.0.0.1", ".vercel.app", "152.118.31.20", "152.118.31.20:8000", "152.118.31.20:8082"]
 
-LOGIN_URL = 'login'
+LOGIN_URL = 'main:login'
 
 # Application definition
 
@@ -60,7 +60,7 @@ ROOT_URLCONF = 'video_editor_sibi.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -124,6 +124,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Additional locations of static files
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+
 # WhiteNoise configuration for serving static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -140,3 +145,22 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
+
+# Email Configuration
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development - shows emails in console
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
+
+# For Gmail SMTP (uncomment for production)
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'fionaratu1804@gmail.com'
+EMAIL_HOST_PASSWORD = 'nmcd rcgc txlz tjrf'
+DEFAULT_FROM_EMAIL = 'Video Annotator <no-reply@gmail.com>'
+
+# For development - console backend
+# DEFAULT_FROM_EMAIL = 'Video Annotator <noreply@videoeditorsibi.com>'
+# EMAIL_HOST_USER = DEFAULT_FROM_EMAIL
+
+# Password Reset Settings
+PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds

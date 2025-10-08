@@ -1,20 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Video Editor</title>
-  <style>
+{% extends 'base.html' %}
+
+{% block title %}Video Editor SIBI - Landing Page{% endblock title %}
+
+{% block extra_css %}
+<style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
+      padding: 0;
       margin: 0;
     }
 
-    nav {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
+    .landing-content {
+      padding: 20px;
     }
 
     .nav-left a {
@@ -67,26 +63,15 @@
       text-align: center;
     }
   </style>
-</head>
-<body>
+{% endblock extra_css %}
 
-<nav>
-  <div class="nav-left">
-    <a href="{% url 'dashboard' %}">📊 Dashboard</a>
-    {% if request.user.is_superuser %}
-      <a href="{% url 'upload_file_page' %}">📤 Upload File</a>
-    {% endif %}
-  </div>
-  <div class="nav-right">
-    <a href="{% url 'logout' %}">Logout</a>
-  </div>
-</nav>
+{% block content %}
 
 <h1>Pilih tanggal video yang ingin ditampilkan</h1>
 
 <div class="folder-container">
   {% for folder in folders %}
-    <div class="folder" onclick="window.location.href='{% url 'search_video' folder_name=folder.name %}'">
+    <div class="folder" onclick="window.location.href='{% url 'main:search_video' folder_name=folder.name %}'">
       <h3>{{ folder.display_name }}</h3>
       <p>
         {% if folder.all_done %}
@@ -98,7 +83,4 @@
     </div>
   {% endfor %}
 </div>
-
-
-</body>
-</html>
+{% endblock content %}

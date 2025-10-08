@@ -7,10 +7,17 @@ from django.conf import settings
 from moviepy import concatenate_videoclips
 from django.views.decorators.http import require_http_methods
 from moviepy.video.io.VideoFileClip import VideoFileClip
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth import login, logout
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sites.shortcuts import get_current_site
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from .forms import CustomUserCreationForm, CustomPasswordResetForm, CustomSetPasswordForm, CustomPasswordChangeForm
 import pandas as pd
 import requests
 import re
@@ -431,11 +438,11 @@ def search_videos(request, folder_name):
 
     for video in videos:
         if not video.is_annotated:
-            return redirect('video_editor', video_title=video.title)
+            return redirect('main:video_editor', video_title=video.title)
 
     # Jika semua sudah dianotasi, redirect ke folder_page
     messages.info(request, 'Semua video sudah dianotasi.')
-    return redirect('folder_page', folder_name=folder_name)
+    return redirect('main:folder_page', folder_name=folder_name)
 
 @csrf_exempt
 @login_required
@@ -452,7 +459,7 @@ def get_previous_video(request, folder_name):
 
 def register(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         referral_code = request.POST.get('referral', '').strip()
 
         ADMIN_CODE = 'RAHASIAADMIN2025' # Referral untuk admin
@@ -471,9 +478,9 @@ def register(request):
 
             user.save()
             messages.success(request, f'Akun berhasil dibuat sebagai {role_msg}!')
-            return redirect('login')
+            return redirect('main:login')
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()
 
     return render(request, 'register.html', {'form': form})
 
@@ -484,14 +491,139 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect('landing_page')
+            return redirect('main:landing_page')
     else:
         form = AuthenticationForm()
     return render(request, 'login.html', {'form': form})
 
 def logout_view(request):
     logout(request)
-    return redirect('login')
+    return redirect('main:login')
+
+"""PASSWORD MANAGEMENT"""
+
+def forgot_password(request):
+    if request.method == 'POST':
+        form = CustomPasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            user = User.objects.get(email=email)
+            
+            # Generate token dan uid
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Create reset URL
+            current_site = get_current_site(request)
+            reset_url = f"http://{current_site.domain}/reset-password/{uid}/{token}/"
+            
+            # Prepare email content
+            subject = 'Reset Password - Video Editor SIBI'
+            message = f'''
+Halo {user.username},
+
+Anda meminta reset password untuk akun Video Editor SIBI.
+Klik link berikut untuk mengatur password baru:
+
+{reset_url}
+
+Link ini berlaku selama 24 jam.
+Jika Anda tidak meminta reset password, abaikan email ini.
+
+Terima kasih,
+Tim Video Editor SIBI
+            '''
+            
+            # Send email
+            try:
+                from django.conf import settings
+                
+                # Untuk development, selalu tampilkan di console
+                if settings.DEBUG:
+                    print("=" * 60)
+                    print("🔑 RESET PASSWORD EMAIL")
+                    print("=" * 60)
+                    print(f"To: {email}")
+                    print(f"Subject: {subject}")
+                    print("-" * 60)
+                    print(message)
+                    print("=" * 60)
+                    print(f"Direct Link: {reset_url}")
+                    print("=" * 60)
+                
+                send_mail(
+                    subject, 
+                    message, 
+                    settings.DEFAULT_FROM_EMAIL, 
+                    [email],
+                    fail_silently=False
+                )
+                
+                if settings.DEBUG:
+                    messages.success(
+                        request, 
+                        f'✅ Email reset password telah dikirim ke {email}. '
+                        f'Periksa console untuk melihat email (mode development).'
+                    )
+                else:
+                    messages.success(
+                        request, 
+                        f'Link reset password telah dikirim ke {email}. '
+                        f'Silakan periksa inbox dan spam folder Anda.'
+                    )
+                
+            except Exception as e:
+                logger.error(f"Error sending reset email: {str(e)}")
+                print(f"❌ Email Error: {str(e)}")
+                print(f"🔗 Fallback - Reset URL: {reset_url}")
+                
+                messages.warning(
+                    request, 
+                    f'Email tidak dapat dikirim, tetapi Anda dapat menggunakan link berikut: '
+                    f'<a href="{reset_url}" target="_blank">Reset Password</a>'
+                )
+            
+            return redirect('main:login')
+    else:
+        form = CustomPasswordResetForm()
+    
+    return render(request, 'forgot_password.html', {'form': form})
+
+def reset_password(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+    
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            form = CustomSetPasswordForm(user, request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Password berhasil diubah! Silakan login dengan password baru.')
+                return redirect('main:login')
+        else:
+            form = CustomSetPasswordForm(user)
+        
+        return render(request, 'reset_password.html', {'form': form})
+    else:
+        messages.error(request, 'Link reset password tidak valid atau sudah kedaluwarsa.')
+        return redirect('main:forgot_password')
+
+@login_required
+def change_password(request):
+    if request.method == 'POST':
+        form = CustomPasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            update_session_auth_hash(request, form.user)  # Agar user tidak logout
+            messages.success(request, 'Password berhasil diubah!')
+            return redirect('main:landing_page')
+    else:
+        form = CustomPasswordChangeForm(user=request.user)
+    
+    return render(request, 'change_password.html', {'form': form})
 
 """KHUSUS UNTUK PAGE"""
 
@@ -578,7 +710,7 @@ def upload_transcript_page(request):
 @login_required
 def upload_file_page(request):
     if not request.user.is_superuser:
-        return redirect('landing_page')
+        return redirect('main:landing_page')
     return render(request, 'upload_file.html')
 
 # ENHANCED USER INTERFACE

@@ -1,23 +1,13 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Video Annotator</title>
+    <link rel="stylesheet" href="{% static 'css/global.css' %}">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-        
+        /* Dashboard-specific styles */
         .header {
             display: flex;
             justify-content: space-between;
@@ -51,12 +41,6 @@
         
         .header-btn.secondary:hover {
             background-color: #5a6268;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
         }
         
         h1 {
@@ -93,22 +77,6 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
         
-        .stat-label {
-            color: #6c757d;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .stat-value {
-            font-size: 3rem;
-            font-weight: 700;
-            color: #1a1a1a;
-            line-height: 1;
-        }
-        
         .stat-value.primary {
             color: #4285f4;
         }
@@ -127,31 +95,6 @@
             padding: 30px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border: 1px solid #e9ecef;
-        }
-        
-        .section-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: #1a1a1a;
-        }
-        
-        .videos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-        }
-        
-        .video-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            border: 1px solid #e9ecef;
-            transition: background-color 0.2s ease;
-        }
-        
-        .video-card:hover {
-            background: #e9ecef;
         }
         
         .video-title {
@@ -175,16 +118,6 @@
             font-weight: 500;
         }
         
-        .status-annotated {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        
-        .status-pending {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-        
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -203,20 +136,16 @@
             h1 {
                 font-size: 2rem;
             }
-            
-            .stat-value {
-                font-size: 2.5rem;
-            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <a href="{% url 'landing_page' %}" class="header-btn">
+            <a href="{% url 'main:landing_page' %}" class="header-btn">
                 ← Kembali ke Video
             </a>
-            <a href="{% url 'profile' %}" class="header-btn secondary">
+            <a href="{% url 'dashboard:profile' %}" class="header-btn secondary">
                 Profile
             </a>
         </div>
@@ -236,7 +165,7 @@
             </div>
             
             <div class="stat-card">
-                <div class="stat-label">Durasi Rata-rata (menit)</div>
+                <div class="stat-label">Rata-rata Durasi Segmentasi Video (menit)</div>
                 <div class="stat-value info">{{ avg_duration }}</div>
             </div>
         </div>

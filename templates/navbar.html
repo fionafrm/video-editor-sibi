@@ -1,0 +1,27 @@
+<nav class="navbar">
+  <div class="nav-container">
+    <div class="nav-brand">
+      <h1>Video Editor SIBI</h1>
+    </div>
+
+    <ul class="nav-menu">
+      <li class="nav-item"><a href="/" class="nav-link">Home</a></li>
+      <li class="nav-item"><a href="{% url 'dashboard:dashboard' %}" class="nav-link">Dashboard</a></li>
+      <li class="nav-item"><a href="{% url 'dashboard:profile' %}" class="nav-link">Profile</a></li>
+      {% if user.is_superuser %}
+        <li class="nav-item"><a href="{% url 'main:upload_file_page' %}" class="nav-link">Upload File</a></li>
+      {% endif %}
+    </ul>
+    
+    <div class="nav-auth">
+      {% if user.is_authenticated %}
+        <span class="nav-user">👋 {{ user.username }}</span>
+        <a href="{% url 'main:change_password' %}" class="nav-link">Change Password</a>
+        <a href="{% url 'main:logout' %}" class="nav-btn logout">Logout</a>
+      {% else %}
+        <a href="{% url 'main:login' %}" class="nav-btn">Login</a>
+        <a href="{% url 'main:register' %}" class="nav-btn primary">Register</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
