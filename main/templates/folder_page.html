@@ -27,7 +27,7 @@
 
 <div>
   {% for video in videos %}
-    <div class="video" onclick="window.location.href='{% url 'video_editor' video_title=video.title %}'">
+    <div class="video" onclick="window.location.href='{% url 'main:video_editor' video_title=video.title %}'">
       <h3>{{ video.title }}</h3>
     </div>
   {% endfor %}

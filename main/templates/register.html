@@ -1,91 +1,113 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>Register</title>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
+{% extends 'base.html' %}
 
-        .register-box {
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
-            width: 320px;
-            text-align: center;
-        }
+{% block title %}Register - Video Editor SIBI{% endblock title %}
 
-        h2 {
-            margin-bottom: 20px;
-            color: #333;
-        }
+{% block extra_css %}
+<style>
+    body {
+        background: linear-gradient(135deg, var(--soft-gray) 0%, var(--light-blue-gray) 50%, var(--dark-teal) 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .auth-content {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+</style>
+{% endblock extra_css %}
 
-        input[type="text"], 
-        input[type="email"], 
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0 16px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-        }
+{% block content %}
+<div class="auth-content">
+    <div class="auth-container wide">
+        <div class="auth-header">
+            <div class="auth-logo">VS</div>
+            <h2 class="auth-title">Buat Akun Baru</h2>
+            <p class="auth-subtitle">Bergabunglah dengan Video Editor SIBI</p>
+        </div>
 
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-        }
+        <div class="auth-messages">
+            {% if form.errors %}
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <div class="auth-message error">{{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+            {% endif %}
+        </div>
 
-        button:hover {
-            background-color: #218838;
-        }
-
-        .login-link {
-            margin-top: 16px;
-            font-size: 13px;
-        }
-
-        .login-link a {
-            color: #007BFF;
-            text-decoration: none;
-        }
-
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="register-box">
-        <h2>Register</h2>
-        <form method="POST">
+        <form method="POST" id="registerForm">
             {% csrf_token %}
-            {{ form.as_p }}
-            <label for="referral">Kode Referral (Opsional):</label>
-            <input type="text" name="referral" id="referral" placeholder="Masukkan kode jika ada">
-            <button type="submit">Daftar</button>
+            
+            <div class="auth-form-group">
+                <label for="{{ form.username.id_for_label }}" class="auth-form-label">Username</label>
+                <input type="text" name="username" class="auth-form-input" id="{{ form.username.id_for_label }}" required>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="{{ form.email.id_for_label }}" class="auth-form-label">Email</label>
+                <input type="email" name="email" class="auth-form-input" id="{{ form.email.id_for_label }}" required>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="{{ form.password1.id_for_label }}" class="auth-form-label">Password</label>
+                <input type="password" name="password1" class="auth-form-input" id="{{ form.password1.id_for_label }}" required>
+                <div class="auth-password-requirements" id="passwordHelp">
+                    Minimal 8 karakter, tidak boleh terlalu umum atau mirip dengan informasi personal
+                </div>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="{{ form.password2.id_for_label }}" class="auth-form-label">Konfirmasi Password</label>
+                <input type="password" name="password2" class="auth-form-input" id="{{ form.password2.id_for_label }}" required>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="referral" class="auth-form-label">Kode Referral (Opsional)</label>
+                <input type="text" name="referral" id="referral" placeholder="Masukkan kode jika ada" class="auth-form-input">
+            </div>
+
+            <button type="submit" class="auth-btn">Daftar Sekarang</button>
         </form>
 
-        <div class="login-link">
-            Sudah punya akun? <a href="{% url 'login' %}">Login di sini</a>
+        <div class="auth-links">
+            Sudah punya akun? <a href="{% url 'main:login' %}" class="auth-link">Login di sini</a>
         </div>
     </div>
-</body>
-</html>
+
+    <script>
+        // Show password requirements on focus
+        const password1 = document.getElementById('{{ form.password1.id_for_label }}');
+        const passwordHelp = document.getElementById('passwordHelp');
+        
+        if (password1) {
+            password1.addEventListener('focus', function() {
+                passwordHelp.classList.add('show');
+            });
+            
+            password1.addEventListener('blur', function() {
+                setTimeout(() => {
+                    passwordHelp.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        // Smooth form validation feedback
+        const form = document.getElementById('registerForm');
+        const inputs = form.querySelectorAll('input');
+        
+        inputs.forEach(input => {
+            input.addEventListener('invalid', function(e) {
+                e.preventDefault();
+                this.style.borderColor = 'var(--error-border)';
+                setTimeout(() => {
+                    this.style.borderColor = 'var(--border-gray)';
+                }, 3000);
+            });
+        });
+    </script>
+</div>
+{% endblock content %}

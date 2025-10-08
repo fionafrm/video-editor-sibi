@@ -19,8 +19,8 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("", include("main.urls")),
-    path('dashboard/', include("dashboard.urls")),
+    path("", include(("main.urls", "main"), namespace="main")),
+    path('dashboard/', include(("dashboard.urls", "dashboard"), namespace="dashboard")),
 ]
 
 from django.conf import settings

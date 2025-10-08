@@ -1,4 +1,14 @@
+{% extends 'base.html' %}
+
 {% load static %}
+
+{% block title %}Video Editor - SIBI{% endblock title %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/global.css' %}">
+{% endblock extra_css %}
+
+{% block content %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -85,18 +95,6 @@
   </style>
 </head>
 <body>
-
-<nav>
-  <div class="nav-left">
-    <a href="/">🏠 Home</a>
-    {% if request.user.is_superuser %}
-      <a href="{% url 'upload_file_page' %}">📤 Upload File</a>
-    {% endif %}
-  </div>
-  <div class="nav-right">
-    <a href="{% url 'logout' %}">Logout</a>
-  </div>
-</nav>
 
 <!-- KONTEN UTAMA -->
 <div class="main-content">
@@ -297,4 +295,5 @@
 </script>
 
 </body>
+{% endblock content %}
 </html>
