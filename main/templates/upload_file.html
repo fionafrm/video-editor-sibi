@@ -92,10 +92,10 @@
 {% block content %}
 <div class="container">
   <div class="upload-content">
-    <h1>📁 Upload File Excel</h1>
+    <h1>Upload File Excel</h1>
     
     <div class="upload-info">
-      <p><strong>📋 Informasi Upload:</strong></p>
+      <p><strong>Informasi Upload:</strong></p>
       <ul style="text-align: left; margin: 10px 0; padding-left: 20px;">
         <li>Format yang didukung: <strong>.xlsx, .xls, .csv</strong></li>
         <li>Maksimal ukuran file: <strong>10MB</strong></li>
@@ -104,11 +104,11 @@
     </div>
 
     <div class="upload-box">
-      <h2 style="margin-top: 0; color: #1a1a1a;">📤 Pilih File untuk Diupload</h2>
+      <h2 style="margin-top: 0; color: #1a1a1a;">Pilih File untuk Diupload</h2>
       <form id="uploadForm" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" required class="file-input">
-        <button type="submit" class="upload-btn">📤 Upload File</button>
+        <button type="submit" class="upload-btn">Upload File</button>
       </form>
       <div class="status" id="statusText"></div>
     </div>

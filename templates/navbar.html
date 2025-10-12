@@ -15,7 +15,7 @@
     
     <div class="nav-auth">
       {% if user.is_authenticated %}
-        <span class="nav-user">👋 {{ user.get_full_name|default:user.username }}</span>
+        <span class="nav-user">{{ user.get_full_name|default:user.username }}</span>
         <a href="{% url 'main:change_password' %}" class="nav-link">Change Password</a>
         <a href="{% url 'main:logout' %}" class="nav-btn logout">Logout</a>
       {% else %}
