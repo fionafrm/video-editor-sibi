@@ -313,26 +313,93 @@ def upload_file(request):
 
             # Baca isi tabel ke DataFrame
             df = pd.read_excel(file_path, engine='openpyxl')
+            
+            print(f"DataFrame shape: {df.shape}")
+            print(f"DataFrame columns: {list(df.columns)}")
+            print("First few rows:")
+            print(df.head())
+            
+            # Cek apakah kolom 'Nama Data' ada
+            if 'Nama Data' not in df.columns:
+                available_cols = list(df.columns)
+                print("ERROR: Kolom 'Nama Data' tidak ditemukan!")
+                print(f"Kolom yang tersedia: {available_cols}")
+                return JsonResponse({'error': f'Kolom "Nama Data" tidak ditemukan. Kolom tersedia: {available_cols}'}, status=400)
 
             # Baca workbook untuk ambil hyperlink kolom A
             wb = openpyxl.load_workbook(file_path)
             ws = wb.active
+            
+            print(f"Worksheet loaded: {ws.title}")
+            print(f"Total rows in worksheet: {ws.max_row}")
+            print(f"Total columns in worksheet: {ws.max_column}")
 
             # Ambil hyperlink dari kolom A (A2, A3, ...)
             drive_links = []
-            for row in ws.iter_rows(min_row=2):  # skip header
+            for row_num, row in enumerate(ws.iter_rows(min_row=2), start=2):  # skip header
                 cell = row[0]  # kolom A
-                link = cell.hyperlink.target if cell.hyperlink else (cell.value or "")
+                
+                # Cek hyperlink dulu, lalu cell value
+                if cell.hyperlink:
+                    link = cell.hyperlink.target
+                    print(f"Row {row_num}: Found hyperlink = '{link}'")
+                elif cell.value:
+                    link = str(cell.value).strip()
+                    print(f"Row {row_num}: Found cell value = '{link}'")
+                else:
+                    link = ""
+                    print(f"Row {row_num}: No link found (empty cell)")
+                
                 drive_links.append(link)
 
             count = 1
+            print(f"Total baris data: {len(df)}")
+            print(f"Total drive links: {len(drive_links)}")
+            
             for idx, row in df.iterrows():
                 try:
-                    link = str(drive_links[idx]).strip()
-                    video_title_raw = str(row['Nama Data']).strip()
+                    # Debugging informasi baris
+                    print(f"\n=== Memproses Baris {idx+2} ===")
+                    
+                    # Cek apakah idx dalam range drive_links
+                    if idx >= len(drive_links):
+                        print(f"[SKIP] Baris {idx+2}: Index melebihi jumlah drive_links ({len(drive_links)})")
+                        continue
+                    
+                    link = str(drive_links[idx]).strip() if drive_links[idx] else ""
+                    
+                    # Cek kolom 'Nama Data'
+                    nama_data_col = row.get('Nama Data')
+                    if nama_data_col is None:
+                        print(f"[SKIP] Baris {idx+2}: Kolom 'Nama Data' tidak ditemukan")
+                        print(f"Available columns: {list(row.keys())}")
+                        continue
+                    
+                    video_title_raw = str(nama_data_col).strip()
+                    
+                    # Detail debugging
+                    print(f"Link: '{link}'")
+                    print(f"Video title raw: '{video_title_raw}'")
+                    print(f"Link valid: {'drive.google.com' in link}")
+                    print(f"Video title valid: {video_title_raw not in ['', 'nan', 'None']}")
 
-                    if not link or 'drive.google.com' not in link or not video_title_raw:
-                        print(f"[SKIP] Baris {idx+2}: link/video_title kosong atau invalid.")
+                    # Validasi dan normalisasi link
+                    if not link or link in ['nan', 'None', '']:
+                        print(f"[SKIP] Baris {idx+2}: Link kosong atau invalid. Link: '{link}'")
+                        continue
+                    
+                    # Coba normalisasi link jika tidak lengkap
+                    if 'drive.google.com' not in link:
+                        # Jika hanya file ID, buat URL lengkap
+                        if re.match(r'^[a-zA-Z0-9_-]{25,}$', link.strip()):
+                            link = f"https://drive.google.com/file/d/{link.strip()}/view"
+                            print(f"Link dinormalisasi menjadi: {link}")
+                        else:
+                            print(f"[SKIP] Baris {idx+2}: Bukan link Google Drive atau file ID. Link: '{link}'")
+                            continue
+                        
+                    if not video_title_raw or video_title_raw in ['nan', 'None', '']:
+                        print(f"[SKIP] Baris {idx+2}: Video title kosong atau invalid. Title: '{video_title_raw}'")
                         continue
 
                     video_title = f"{video_title_raw}.mp4"
@@ -352,19 +419,80 @@ def upload_file(request):
                     except User.DoesNotExist:
                         user = None
 
-                    # Ambil file ID dari link
-                    match = re.search(r'/d/([^/]+)', link)
-                    if not match:
-                        print(f"[SKIP] Baris {idx+2}: Gagal ekstrak file ID dari link")
+                    # Ambil file ID dari link - Support berbagai format Google Drive
+                    file_id = None
+                    
+                    # Pattern 1: /d/FILE_ID/view atau /d/FILE_ID
+                    match = re.search(r'/d/([a-zA-Z0-9_-]+)', link)
+                    if match:
+                        file_id = match.group(1)
+                        print(f"File ID extracted (pattern 1): {file_id}")
+                    else:
+                        # Pattern 2: id=FILE_ID
+                        match = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', link)
+                        if match:
+                            file_id = match.group(1)
+                            print(f"File ID extracted (pattern 2): {file_id}")
+                        else:
+                            # Pattern 3: Link berakhir dengan file ID
+                            match = re.search(r'([a-zA-Z0-9_-]{25,})/?$', link)
+                            if match:
+                                file_id = match.group(1)
+                                print(f"File ID extracted (pattern 3): {file_id}")
+                    
+                    if not file_id:
+                        print(f"[SKIP] Baris {idx+2}: Gagal ekstrak file ID dari link: {link}")
+                        print("Supported formats:")
+                        print("- https://drive.google.com/file/d/FILE_ID/view")
+                        print("- https://drive.google.com/open?id=FILE_ID")
+                        print("- https://drive.google.com/file/d/FILE_ID")
                         continue
-                    file_id = match.group(1)
+                    
                     download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+                    print(f"Download URL: {download_url}")
 
-                    # Unduh video
-                    response = requests.get(download_url)
+                    # Unduh video dengan handling untuk large files
+                    print(f"Attempting to download from: {download_url}")
+                    response = requests.get(download_url, stream=True)
+                    
                     if response.status_code != 200:
                         print(f"[SKIP] Baris {idx+2}: Gagal download video (status {response.status_code})")
+                        print(f"Response headers: {dict(response.headers)}")
                         continue
+                    
+                    # Cek apakah response berisi HTML (Google Drive confirmation page)
+                    content_type = response.headers.get('content-type', '')
+                    if 'text/html' in content_type:
+                        print(f"[SKIP] Baris {idx+2}: Response berisi HTML, mungkin perlu konfirmasi download")
+                        print("Kemungkinan file terlalu besar atau memerlukan konfirmasi manual")
+                        
+                        # Coba ekstrak confirmation URL jika ada
+                        html_content = response.text
+                        confirm_match = re.search(r'action="([^"]*)" method="post"', html_content)
+                        if confirm_match:
+                            confirm_url = confirm_match.group(1).replace('&amp;', '&')
+                            print(f"Found confirmation URL: {confirm_url}")
+                            # Coba download dengan confirmation
+                            confirm_response = requests.get(f"https://drive.google.com{confirm_url}", stream=True)
+                            if confirm_response.status_code == 200 and 'video' in confirm_response.headers.get('content-type', ''):
+                                response = confirm_response
+                            else:
+                                print("[SKIP] Confirmation download juga gagal")
+                                continue
+                        else:
+                            continue
+                    
+                    # Verifikasi content-type untuk memastikan ini file video
+                    if response.status_code == 200:
+                        content_type = response.headers.get('content-type', '')
+                        content_length = response.headers.get('content-length', 'Unknown')
+                        print(f"Content-Type: {content_type}, Content-Length: {content_length}")
+                        
+                        # Baca content untuk file yang berhasil didownload
+                        video_content = response.content
+                        if len(video_content) < 1000:  # File terlalu kecil, kemungkinan bukan video
+                            print(f"[SKIP] Baris {idx+2}: File terlalu kecil ({len(video_content)} bytes), kemungkinan bukan video")
+                            continue
 
                     # Simpan ke folder yang sesuai
                     videos_dir = os.path.join('videos', folder_name)
@@ -375,11 +503,20 @@ def upload_file(request):
                     final_video_path = os.path.join(videos_dir, video_title)
                     raw_video_path = os.path.join(raw_dir, video_title)
 
-                    final_path = default_storage.save(final_video_path, ContentFile(response.content))
-                    default_storage.save(raw_video_path, ContentFile(response.content))
+                    print(f"Saving video to: {final_video_path}")
+                    print(f"Video size: {len(video_content)} bytes")
+
+                    final_path = default_storage.save(final_video_path, ContentFile(video_content))
+                    default_storage.save(raw_video_path, ContentFile(video_content))
 
                     # Simpan ke DB
-                    Video.objects.create(
+                    print("Creating Video record:")
+                    print(f"- Title: {video_title}")
+                    print(f"- Folder: {folder_name}")
+                    print(f"- Annotated by: {user.username if user else 'None'}")
+                    print(f"- Is annotated: {is_annotated}")
+                    
+                    video_obj = Video.objects.create(
                         title=video_title,
                         folder_name=folder_name,
                         file=final_path,
@@ -391,13 +528,19 @@ def upload_file(request):
                         annotated_by=user,
                         is_annotated=is_annotated
                     )
-
+                    
+                    print(f"✅ SUCCESS: Video {video_title} berhasil diproses dan disimpan (ID: {video_obj.id})")
                     count += 1
 
                 except Exception as e:
                     print(f"[ERROR] Baris {idx+2}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
 
-            return JsonResponse({'message': f'Upload selesai. {count-1} video diproses.'})
+            print("\n=== SUMMARY ===")
+            print(f"Total baris diproses: {len(df)}")
+            print(f"Video berhasil diupload: {count-1}")
+            return JsonResponse({'message': f'Upload selesai. {count-1} video diproses dari {len(df)} baris.'})
 
         except Exception as e:
             import traceback
