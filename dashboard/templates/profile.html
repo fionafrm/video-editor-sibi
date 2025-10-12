@@ -1,23 +1,86 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile - Video Annotator</title>
-    <link rel="stylesheet" href="{% static 'css/global.css' %}">
-    <style>
-        /* Profile-specific container width */
+{% extends 'base.html' %}
+
+{% block title %}Profile - Video Annotator{% endblock title %}
+
+{% block extra_css %}
+<style>
+        /* Profile-specific styles */
         .container {
             max-width: 1000px;
         }
+        
+        /* Messages styling */
+        .messages-section {
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Form error styling */
+        .form-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        
+        /* Form help text styling */
+        .form-help {
+            color: #6c757d;
+            font-size: 0.875rem;
+            margin-top: 4px;
+            display: block;
+        }
+        
+        /* Readonly input styling */
+        .form-input[readonly] {
+            background-color: #f8f9fa !important;
+            color: #6c757d !important;
+            cursor: not-allowed;
+        }
+        
+        /* Profile header styling */
+        .profile-card h1 {
+            text-align: left;
+        }
+        
+        /* Center the profile card */
+        .profile-card {
+            margin: 20px auto;
+        }
+        
+        /* Center button group */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .button-group .btn {
+            min-width: 150px;
+        }
     </style>
-</head>
-<body>
+{% endblock extra_css %}
+
+{% block content %}
     <div class="container">
-        <div class="header">
-            <a href="{% url 'dashboard:dashboard' %}" style="color: white; text-decoration: none;">← Kembali ke Dashboard</a>
-        </div>
+        <h1 style="text-align: center; margin-bottom: 30px;">Profile Pengguna</h1>
         
         <div class="profile-card">
             <div class="profile-header">
@@ -30,49 +93,94 @@
                 </div>
             </div>
             
-            <div class="form-section">
-                <div class="left-column">
-                    <div class="form-group">
-                        <label class="form-label">Nama</label>
-                        <input type="text" class="form-input" value="{{ user.get_full_name|default:user.username }}" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-input" value="" placeholder="Email belum diatur" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Role</label>
-                        <input type="text" class="form-input" value="{{ role }}" readonly>
-                    </div>
+            <!-- Display messages if any -->
+            {% if messages %}
+                <div class="messages-section">
+                    {% for message in messages %}
+                        <div class="message {{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
                 </div>
+            {% endif %}
+            
+            <form method="POST" id="profileForm">
+                {% csrf_token %}
                 
-                <div class="right-column">
-                    <div class="stats-section">
-                        <h3 class="section-title">Statistik singkat</h3>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-label">Proyek</div>
-                                <div class="stat-value projects">{{ user_projects }}</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">Anotasi</div>
-                                <div class="stat-value annotations">{{ user_annotations }}</div>
+                <div class="form-section">
+                    <div class="left-column">
+                        <div class="form-group">
+                            <label class="form-label">{{ user_form.first_name.label }}</label>
+                            {{ user_form.first_name }}
+                            {% if user_form.first_name.errors %}
+                                <div class="form-error">{{ user_form.first_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">{{ user_form.last_name.label }}</label>
+                            {{ user_form.last_name }}
+                            {% if user_form.last_name.errors %}
+                                <div class="form-error">{{ user_form.last_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">{{ user_form.email.label }}</label>
+                            {{ user_form.email }}
+                            {% if user_form.email.errors %}
+                                <div class="form-error">{{ user_form.email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-input" value="{{ user.username }}" readonly style="background-color: #f8f9fa; color: #6c757d;">
+                            <small class="form-help">Username tidak dapat diubah</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Role</label>
+                            <input type="text" class="form-input" value="{{ role }}" readonly style="background-color: #f8f9fa; color: #6c757d;">
+                        </div>
+                    </div>
+                    
+                    <div class="right-column">
+                        <div class="form-group">
+                            <label class="form-label">{{ profile_form.bio.label }}</label>
+                            {{ profile_form.bio }}
+                            {% if profile_form.bio.errors %}
+                                <div class="form-error">{{ profile_form.bio.errors.0 }}</div>
+                            {% endif %}
+                            {% if profile_form.bio.help_text %}
+                                <small class="form-help">{{ profile_form.bio.help_text }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="stats-section">
+                            <h3 class="section-title">Statistik singkat</h3>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Proyek</div>
+                                    <div class="stat-value projects">{{ user_projects }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Anotasi</div>
+                                    <div class="stat-value annotations">{{ user_annotations }}</div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="form-footer">
-                <p class="footer-text">Pastikan data Anda akurat untuk pengalaman anotasi terbaik.</p>
-                <div class="button-group">
-                    <a href="{% url 'dashboard:dashboard' %}" class="btn btn-cancel">Batal</a>
-                    <button type="button" class="btn btn-primary" onclick="alert('Fitur simpan akan segera tersedia!')">Simpan perubahan</button>
+                
+                <div class="form-footer">
+                    <p class="footer-text">Pastikan data Anda akurat untuk pengalaman anotasi terbaik.</p>
+                    <div class="button-group">
+                        <a href="{% url 'dashboard:dashboard' %}" class="btn btn-cancel">Kembali ke Dashboard</a>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
-</body>
-</html>
+{% endblock content %}
