@@ -307,6 +307,9 @@ def upload_file(request):
         ext = file.name.split('.')[-1]
         tmp_path = default_storage.save(f"temp/{file.name}", file)
 
+        # Logic sederhana: gunakan file yang sudah ada jika valid, atau download jika tidak ada
+        print("Mode: Otomatis - gunakan file lokal jika ada, atau download jika tidak ada")
+
         try:
 
             file_path = default_storage.path(tmp_path)
@@ -497,6 +500,92 @@ def upload_file(request):
                     download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
                     print(f"Download URL: {download_url}")
 
+                    # Siapkan path untuk file sebelum melakukan pengecekan
+                    videos_dir = os.path.join('videos', folder_name)
+                    raw_dir = os.path.join('raw_videos', folder_name)
+                    final_video_path = os.path.join(videos_dir, video_title)
+                    raw_video_path = os.path.join(raw_dir, video_title)
+                    
+                    # Path absolut untuk pengecekan file di local storage
+                    final_full_path = os.path.join(settings.MEDIA_ROOT, final_video_path)
+                    raw_full_path = os.path.join(settings.MEDIA_ROOT, raw_video_path)
+                    
+                    # Fungsi untuk validasi file video
+                    def is_valid_video_file(file_path):
+                        """Validasi apakah file adalah video yang valid dan tidak corrupt"""
+                        try:
+                            if not os.path.exists(file_path):
+                                return False
+                            
+                            # Cek ukuran file minimal (100KB untuk video)
+                            file_size = os.path.getsize(file_path)
+                            if file_size < 100000:  # 100KB minimum
+                                print(f"File terlalu kecil: {file_size} bytes")
+                                return False
+                            
+                            # Cek ekstensi file
+                            if not file_path.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
+                                print(f"Ekstensi file tidak valid: {file_path}")
+                                return False
+                            
+                            print(f"File valid: {file_path} ({file_size} bytes)")
+                            return True
+                        except Exception as e:
+                            print(f"Error validating file {file_path}: {e}")
+                            return False
+                    
+                    # Cek apakah file sudah ada di local storage
+                    file_exists_in_final = is_valid_video_file(final_full_path)
+                    file_exists_in_raw = is_valid_video_file(raw_full_path)
+                    file_exists_locally = file_exists_in_final or file_exists_in_raw
+                    
+                    if file_exists_locally:
+                        existing_path = final_full_path if file_exists_in_final else raw_full_path
+                        file_size = os.path.getsize(existing_path)
+                        print(f"📁 File sudah ada di local storage: {existing_path}")
+                        print(f"File size: {file_size:,} bytes ({file_size/1024/1024:.1f} MB)")
+                        print(f"[SKIP] Baris {idx+2}: File sudah ada dan valid, melewati download")
+                        
+                        # Tetap buat atau update record di database jika diperlukan
+                        existing_video = Video.objects.filter(title=video_title, folder_name=folder_name).first()
+                        if not existing_video:
+                            print("File ada di local tapi tidak ada record di database, membuat record baru...")
+                            # Gunakan path file yang sudah ada
+                            relative_path = final_video_path if file_exists_in_final else raw_video_path
+                            video_obj = Video.objects.create(
+                                title=video_title,
+                                folder_name=folder_name,
+                                file=relative_path,
+                                automated_transcript=automated_transcript,
+                                transcript_alignment=transcript_alignment,
+                                sibi_sentence=sibi_sentence,
+                                potential_problem=potential_problem,
+                                comment=comment,
+                                annotated_by=user,
+                                is_annotated=is_annotated
+                            )
+                            print(f"✅ Record database dibuat untuk file yang sudah ada (ID: {video_obj.id})")
+                            count += 1
+                        else:
+                            # Update metadata dari Excel meskipun file sudah ada
+                            print(f"Record database sudah ada (ID: {existing_video.id}), update metadata dari Excel...")
+                            existing_video.automated_transcript = automated_transcript
+                            existing_video.transcript_alignment = transcript_alignment
+                            existing_video.sibi_sentence = sibi_sentence
+                            existing_video.potential_problem = potential_problem
+                            existing_video.comment = comment
+                            if user:
+                                existing_video.annotated_by = user
+                            existing_video.is_annotated = is_annotated
+                            existing_video.save()
+                            print(f"✅ Metadata berhasil diperbarui (ID: {existing_video.id})")
+                            count += 1
+                        continue
+
+                    # Buat folder jika belum ada
+                    os.makedirs(os.path.join(settings.MEDIA_ROOT, videos_dir), exist_ok=True)
+                    os.makedirs(os.path.join(settings.MEDIA_ROOT, raw_dir), exist_ok=True)
+
                     # Unduh video dengan handling untuk large files
                     print(f"Attempting to download from: {download_url}")
                     response = requests.get(download_url, stream=True)
@@ -540,17 +629,9 @@ def upload_file(request):
                             print(f"[SKIP] Baris {idx+2}: File terlalu kecil ({len(video_content)} bytes), kemungkinan bukan video")
                             continue
 
-                    # Simpan ke folder yang sesuai
-                    videos_dir = os.path.join('videos', folder_name)
-                    raw_dir = os.path.join('raw_videos', folder_name)
-                    os.makedirs(os.path.join(settings.MEDIA_ROOT, videos_dir), exist_ok=True)
-                    os.makedirs(os.path.join(settings.MEDIA_ROOT, raw_dir), exist_ok=True)
-
-                    final_video_path = os.path.join(videos_dir, video_title)
-                    raw_video_path = os.path.join(raw_dir, video_title)
-
+                    # Path sudah disiapkan sebelumnya, langsung simpan
                     print(f"Saving video to: {final_video_path}")
-                    print(f"Video size: {len(video_content)} bytes")
+                    print(f"Video size: {len(video_content):,} bytes ({len(video_content)/1024/1024:.1f} MB)")
 
                     final_path = default_storage.save(final_video_path, ContentFile(video_content))
                     default_storage.save(raw_video_path, ContentFile(video_content))
