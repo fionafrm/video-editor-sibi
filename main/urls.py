@@ -23,7 +23,9 @@ from .views import (
     logout_view,
     forgot_password,
     reset_password,
-    change_password
+    change_password,
+    debug_video_merge,
+    cleanup_duplicate_videos
 )
 
 app_name = 'main'
@@ -77,7 +79,11 @@ urlpatterns = [
     # Data untuk halaman landing
     path('landing_page_data/', landing_page_data, name='landing_page_data'),
 
-
+    # Debug endpoint untuk merge
+    path('debug_merge/<video_title>/', debug_video_merge, name='debug_merge'),
+    
+    # Cleanup duplicate videos (admin only)
+    path('cleanup_duplicates/', cleanup_duplicate_videos, name='cleanup_duplicates'),
 
     # Autentikasi
     path('register/', register, name='register'),
