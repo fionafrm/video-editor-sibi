@@ -405,19 +405,65 @@ def upload_file(request):
                     video_title = f"{video_title_raw}.mp4"
                     folder_name = "_".join(video_title_raw.split("_")[:-1])
 
-                    # Ambil metadata lain
+                    # Ambil metadata lain dengan debugging
                     automated_transcript = str(row.get('Transkripsi Suara secara Otomatis oleh Sistem', '')).strip()
                     transcript_alignment = str(row.get('Penyelarasan Suara/Teks Transkripsi dan Gerakan Bahasa Isyarat', '')).strip()
                     sibi_sentence = str(row.get('Kalimat yang Diperagakan', '')).strip()
                     potential_problem = str(row.get('Potensi Masalah', '')).strip()
                     comment = str(row.get('Keterangan Annotator', '')).strip()
                     username = str(row.get('Nama Annotator', '')).strip()
-                    is_annotated = str(row.get('Hasil Alignment (NEW)', '')).strip().lower() in ['1', 'true', 'yes']
+                    
+                    print("Metadata extracted:")
+                    print(f"- Automated transcript: {len(automated_transcript)} chars")
+                    print(f"- Transcript alignment: {len(transcript_alignment)} chars")
+                    print(f"- SIBI sentence: {len(sibi_sentence)} chars")
+                    print(f"- Potential problem: {len(potential_problem)} chars")
+                    print(f"- Comment: {len(comment)} chars")
+                    print(f"- Username: '{username}'")
+                    
+                    # Parsing kolom Hasil Alignment (NEW) dengan debugging
+                    hasil_alignment_raw = row.get('Hasil Alignment (NEW)')
+                    print(f"Hasil Alignment (NEW) raw value: '{hasil_alignment_raw}' (type: {type(hasil_alignment_raw)})")
+                    
+                    if hasil_alignment_raw is None or hasil_alignment_raw == '':
+                        is_annotated = False
+                        print("is_annotated = False (kolom kosong)")
+                    else:
+                        # Konversi ke string dan normalisasi
+                        hasil_alignment_str = str(hasil_alignment_raw).strip().lower()
+                        print(f"Hasil Alignment (NEW) normalized: '{hasil_alignment_str}'")
+                        
+                        # Cek berbagai format yang mungkin
+                        if hasil_alignment_str in ['1', '1.0', 'true', 'yes', 'ya', 'sudah']:
+                            is_annotated = True
+                            print("is_annotated = True (nilai positif terdeteksi)")
+                        elif hasil_alignment_str in ['0', '0.0', 'false', 'no', 'tidak', 'belum', '']:
+                            is_annotated = False
+                            print("is_annotated = False (nilai negatif terdeteksi)")
+                        else:
+                            # Coba parsing sebagai angka
+                            try:
+                                numeric_value = float(hasil_alignment_str)
+                                is_annotated = numeric_value > 0
+                                print(f"is_annotated = {is_annotated} (parsed as number: {numeric_value})")
+                            except ValueError:
+                                is_annotated = False
+                                print(f"is_annotated = False (tidak bisa parsing: '{hasil_alignment_str}')")
+                    
+                    print(f"Final is_annotated value: {is_annotated}")
 
+                    # Parsing username dengan debugging
+                    print(f"Username raw: '{username}'")
                     try:
-                        user = User.objects.get(username=username)
+                        if username and username not in ['', 'nan', 'None']:
+                            user = User.objects.get(username=username)
+                            print(f"User found: {user.username} (ID: {user.id})")
+                        else:
+                            user = None
+                            print("No username provided, user = None")
                     except User.DoesNotExist:
                         user = None
+                        print(f"User with username '{username}' not found in database")
 
                     # Ambil file ID dari link - Support berbagai format Google Drive
                     file_id = None
