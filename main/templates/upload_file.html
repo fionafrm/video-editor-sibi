@@ -108,6 +108,16 @@
       <form id="uploadForm" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" required class="file-input">
+        
+        <div style="margin: 20px 0; padding: 15px; background-color: #e8f4fd; border: 1px solid #b3d7ff; border-radius: 6px; text-align: left;">
+          <div style="font-weight: 500; color: #0066cc; margin-bottom: 8px;">
+            🔄 Mode Otomatis
+          </div>
+          <small style="color: #555; font-size: 13px; line-height: 1.4;">
+            Sistem akan otomatis menggunakan file yang sudah ada di server jika valid, atau download dari Google Drive jika belum ada. Metadata akan selalu diperbarui sesuai data Excel.
+          </small>
+        </div>
+        
         <button type="submit" class="upload-btn">Upload File</button>
       </form>
       <div class="status" id="statusText"></div>
@@ -128,6 +138,11 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
+
+  // Tampilkan status loading
+  statusText.className = 'status';
+  statusText.style.color = '#0066cc';
+  statusText.textContent = '🔄 Sedang memproses file...';
 
   fetch('/upload_file/', {
     method: 'POST',
