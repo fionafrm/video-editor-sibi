@@ -108,7 +108,14 @@ def merge_videos(request, video_title):
             print(f"Video dengan base '{base_title}' yang ada:")
             for v in similar_videos:
                 print(f"  - {v.title}")
-            return JsonResponse({'error': f'Tidak ditemukan video selanjutnya: {next_video_title}'}, status=404)
+            
+            print(f"✅ Tidak ada video berikutnya, mengembalikan video asli: {video.title}")
+            # Tidak ada video berikutnya, return video asli saja
+            return JsonResponse({
+                'message': 'Video asli (tidak ada video berikutnya untuk merge).',
+                'merged_video_url': video.file.url,
+                'is_single_video': True
+            })
         
         # Cek duplikasi video berikutnya juga
         next_duplicate_count = Video.objects.filter(title=next_video_title).count()
@@ -349,21 +356,37 @@ def get_merged_video(request, video_title):
         merge_response = merge_videos(request, video_title)
         print(f"Merge response status: {merge_response.status_code}")
 
-        # Kalau sukses (status 200), ambil ulang video dan balikan URL-nya
+        # Kalau sukses (status 200), process response
         if merge_response.status_code == 200:
-            video.refresh_from_db()  # Pastikan ambil data terbaru dari DB
-            print(f"After merge - merged_video_path: {video.merged_video_path}")
-            if video.merged_video_path:
-                merged_video_url = default_storage.url(video.merged_video_path)
-                print(f"✅ Merge successful, returning: {merged_video_url}")
+            # Parse response untuk cek apakah ini single video atau merged video
+            response_data = json.loads(merge_response.content.decode('utf-8'))
+            
+            if response_data.get('is_single_video'):
+                # Video tunggal (tidak ada video berikutnya)
+                print(f"✅ Single video returned: {response_data.get('merged_video_url')}")
                 return JsonResponse({
-                    'merged_video_url': merged_video_url,
+                    'merged_video_url': response_data.get('merged_video_url'),
                     'transcript': video.transcript,
-                    'comment': video.comment
+                    'comment': video.comment,
+                    'is_single_video': True,
+                    'message': 'Video asli (tidak ada video berikutnya untuk merge)'
                 })
             else:
-                print("❌ Merge reported success but no merged_video_path saved")
-                return JsonResponse({'error': 'Merge completed but path not saved'}, status=500)
+                # Video berhasil di-merge
+                video.refresh_from_db()  # Pastikan ambil data terbaru dari DB
+                print(f"After merge - merged_video_path: {video.merged_video_path}")
+                if video.merged_video_path:
+                    merged_video_url = default_storage.url(video.merged_video_path)
+                    print(f"✅ Merge successful, returning: {merged_video_url}")
+                    return JsonResponse({
+                        'merged_video_url': merged_video_url,
+                        'transcript': video.transcript,
+                        'comment': video.comment,
+                        'is_single_video': False
+                    })
+                else:
+                    print("❌ Merge reported success but no merged_video_path saved")
+                    return JsonResponse({'error': 'Merge completed but path not saved'}, status=500)
 
         # Kalau merge gagal, return responsenya langsung
         print("❌ Merge failed, returning error response")
@@ -420,7 +443,6 @@ def upload_file(request):
     """Mengunggah file Excel dengan link Google Drive di hyperlink kolom A"""
     if request.method == 'POST' and request.FILES.get('file'):
         file = request.FILES['file']
-        ext = file.name.split('.')[-1]
         tmp_path = default_storage.save(f"temp/{file.name}", file)
 
         # Logic sederhana: gunakan file yang sudah ada jika valid, atau download jika tidak ada
