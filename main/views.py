@@ -68,50 +68,126 @@ def upload_video(request):
 def merge_videos(request, video_title):
     """ Menggabungkan video dengan video selanjutnya (berdasarkan urutan nama) """
     try:
-        # Ambil video saat ini
-        video = get_object_or_404(Video, title=video_title)
+        print(f"\n=== MERGE DEBUG untuk {video_title} ===")
+        
+        # Ambil video saat ini - gunakan filter().first() untuk menghindari error multiple objects
+        video = Video.objects.filter(title=video_title).first()
+        if not video:
+            print(f"❌ Video tidak ditemukan: {video_title}")
+            return JsonResponse({'error': f'Video tidak ditemukan: {video_title}'}, status=404)
+        
+        # Cek jika ada duplikasi
+        duplicate_count = Video.objects.filter(title=video_title).count()
+        if duplicate_count > 1:
+            print(f"⚠️ WARNING: Ditemukan {duplicate_count} video dengan nama '{video_title}'!")
+            print("Menggunakan video yang pertama ditemukan...")
+        print(f"Video ditemukan: {video.title} (ID: {video.id})")
+        print(f"Video file path: {video.file}")
 
-        # Ekstrak sequence dari nama file, misal: "29_Januari_2020_0001.mp4"
+        # Ekstrak sequence dari nama file, misal: "TVRI_SB_061119_0052.mp4"
         name_parts = video_title.replace('.mp4', '').split('_')
+        print(f"Name parts: {name_parts}")
+        
         current_sequence = int(name_parts[-1])
         base_title = '_'.join(name_parts[:-1])
+        print(f"Current sequence: {current_sequence}")
+        print(f"Base title: {base_title}")
 
         # Buat nama video berikutnya
         next_sequence = current_sequence + 1
         next_video_title = f"{base_title}_{next_sequence:04d}.mp4"
+        print(f"Looking for next video: {next_video_title}")
 
         # Coba ambil video berikutnya dari database
         next_video = Video.objects.filter(title=next_video_title).first()
-
+        
         if not next_video:
+            print(f"❌ Video berikutnya tidak ditemukan: {next_video_title}")
+            # Cek video apa saja yang ada dengan base_title yang sama
+            similar_videos = Video.objects.filter(title__startswith=base_title).order_by('title')
+            print(f"Video dengan base '{base_title}' yang ada:")
+            for v in similar_videos:
+                print(f"  - {v.title}")
             return JsonResponse({'error': f'Tidak ditemukan video selanjutnya: {next_video_title}'}, status=404)
+        
+        # Cek duplikasi video berikutnya juga
+        next_duplicate_count = Video.objects.filter(title=next_video_title).count()
+        if next_duplicate_count > 1:
+            print(f"⚠️ WARNING: Ditemukan {next_duplicate_count} video dengan nama '{next_video_title}'!")
+            print("Menggunakan video yang pertama ditemukan...")
+        
+        print(f"✅ Video berikutnya ditemukan: {next_video.title} (ID: {next_video.id})")
 
         # Dapatkan path file kedua video
         path1 = video.file.path
         path2 = next_video.file.path
+        
+        print(f"Path video 1: {path1}")
+        print(f"Path video 2: {path2}")
+        print(f"File 1 exists: {os.path.exists(path1)}")
+        print(f"File 2 exists: {os.path.exists(path2)}")
+
+        if not os.path.exists(path1):
+            print(f"❌ File pertama tidak ditemukan: {path1}")
+            return JsonResponse({'error': f'File video pertama tidak ditemukan: {path1}'}, status=404)
+        
+        if not os.path.exists(path2):
+            print(f"❌ File kedua tidak ditemukan: {path2}")
+            return JsonResponse({'error': f'File video kedua tidak ditemukan: {path2}'}, status=404)
 
         logger.info(f"Merging {path1} + {path2}")
+        print("🎬 Memulai proses merge dengan moviepy...")
 
         # Gabungkan menggunakan moviepy
-        clip1 = VideoFileClip(path1)
-        clip2 = VideoFileClip(path2)
-        merged_clip = concatenate_videoclips([clip1, clip2])
+        try:
+            clip1 = VideoFileClip(path1)
+            clip2 = VideoFileClip(path2)
+            print(f"Video 1 duration: {clip1.duration} seconds")
+            print(f"Video 2 duration: {clip2.duration} seconds")
+            
+            merged_clip = concatenate_videoclips([clip1, clip2])
+            print(f"Merged clip duration: {merged_clip.duration} seconds")
 
-        # Simpan hasil merge
-        merged_filename = f"merged_{video_title.replace('.mp4','')}_{next_video_title}"
-        merged_path = os.path.join('edited_videos', merged_filename)
+            # Simpan hasil merge
+            merged_filename = f"merged_{video_title.replace('.mp4','')}_{next_video_title}"
+            merged_path = os.path.join('edited_videos', merged_filename)
+            
+            print(f"Merged filename: {merged_filename}")
+            print(f"Merged path: {merged_path}")
+            
+            # Buat folder edited_videos jika belum ada
+            edited_dir = os.path.join(settings.MEDIA_ROOT, 'edited_videos')
+            os.makedirs(edited_dir, exist_ok=True)
+            print(f"Edited videos directory: {edited_dir}")
+            
+            # Path lengkap untuk file output
+            full_merged_path = default_storage.path(merged_path)
+            print(f"Full merged path: {full_merged_path}")
+            
+            print("📹 Writing merged video file...")
+            merged_clip.write_videofile(full_merged_path, codec="libx264")
+            print("✅ Video merge completed successfully")
+            
+            # Tutup clips untuk free memory
+            clip1.close()
+            clip2.close()
+            merged_clip.close()
 
-        os.makedirs(os.path.join(settings.MEDIA_ROOT, 'edited_videos'), exist_ok=True)
-        merged_clip.write_videofile(default_storage.path(merged_path), codec="libx264")
+            # Simpan path ke model
+            video.merged_video_path = merged_path
+            video.save()
+            print(f"✅ Database updated with merged_video_path: {merged_path}")
 
-        # Simpan path ke model
-        video.merged_video_path = merged_path
-        video.save()
-
-        return JsonResponse({
-            'message': 'Video berhasil digabung.',
-            'merged_video_url': default_storage.url(merged_path)
-        })
+            return JsonResponse({
+                'message': 'Video berhasil digabung.',
+                'merged_video_url': default_storage.url(merged_path)
+            })
+        
+        except Exception as moviepy_error:
+            print(f"❌ Error during moviepy processing: {moviepy_error}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': f'Error saat memproses video: {str(moviepy_error)}'}, status=500)
 
     except Exception as e:
         logger.error(f"Error in merging videos: {str(e)}")
@@ -233,31 +309,71 @@ def get_video_details(request, video_title):
 @csrf_exempt
 @login_required
 def get_merged_video(request, video_title):
-    video = get_object_or_404(Video, title=video_title)
+    print(f"\n=== GET_MERGED_VIDEO DEBUG untuk {video_title} ===")
+    
+    try:
+        # Gunakan filter().first() untuk menghindari error multiple objects
+        video = Video.objects.filter(title=video_title).first()
+        if not video:
+            print(f"❌ Video tidak ditemukan: {video_title}")
+            return JsonResponse({'error': f'Video tidak ditemukan: {video_title}'}, status=404)
+        
+        # Cek jika ada duplikasi
+        duplicate_count = Video.objects.filter(title=video_title).count()
+        if duplicate_count > 1:
+            print(f"⚠️ WARNING: Ditemukan {duplicate_count} video dengan nama yang sama!")
+            print("Menggunakan video yang pertama ditemukan...")
+        print(f"Video ditemukan: {video.title} (ID: {video.id})")
+        print(f"Merged video path: {video.merged_video_path}")
+        
+        # Cek apakah file merge sudah ada
+        if video.merged_video_path:
+            file_exists = default_storage.exists(video.merged_video_path)
+            print(f"Merged file exists: {file_exists}")
+            if file_exists:
+                full_path = default_storage.path(video.merged_video_path)
+                print(f"Full path: {full_path}")
+                print(f"File size: {os.path.getsize(full_path)} bytes")
+        
+        if video.merged_video_path and default_storage.exists(video.merged_video_path):
+            merged_video_url = default_storage.url(video.merged_video_path)
+            print(f"✅ Returning existing merged video: {merged_video_url}")
+            return JsonResponse({
+                'merged_video_url': merged_video_url,
+                'transcript': video.transcript,
+                'comment': video.comment
+            })
 
-    if video.merged_video_path and default_storage.exists(video.merged_video_path):
-        merged_video_url = default_storage.url(video.merged_video_path)
-        return JsonResponse({
-            'merged_video_url': merged_video_url,
-            'transcript': video.transcript,
-            'comment': video.comment
-        })
+        print("❌ No existing merged video, attempting to create new one...")
+        # Jika belum ada hasil merge, lakukan merge dulu
+        merge_response = merge_videos(request, video_title)
+        print(f"Merge response status: {merge_response.status_code}")
 
-    # Jika belum ada hasil merge, lakukan merge dulu
-    merge_response = merge_videos(request, video_title)
+        # Kalau sukses (status 200), ambil ulang video dan balikan URL-nya
+        if merge_response.status_code == 200:
+            video.refresh_from_db()  # Pastikan ambil data terbaru dari DB
+            print(f"After merge - merged_video_path: {video.merged_video_path}")
+            if video.merged_video_path:
+                merged_video_url = default_storage.url(video.merged_video_path)
+                print(f"✅ Merge successful, returning: {merged_video_url}")
+                return JsonResponse({
+                    'merged_video_url': merged_video_url,
+                    'transcript': video.transcript,
+                    'comment': video.comment
+                })
+            else:
+                print("❌ Merge reported success but no merged_video_path saved")
+                return JsonResponse({'error': 'Merge completed but path not saved'}, status=500)
 
-    # Kalau sukses (status 200), ambil ulang video dan balikan URL-nya
-    if merge_response.status_code == 200:
-        video.refresh_from_db()  # Pastikan ambil data terbaru dari DB
-        merged_video_url = default_storage.url(video.merged_video_path)
-        return JsonResponse({
-            'merged_video_url': merged_video_url,
-            'transcript': video.transcript,
-            'comment': video.comment
-        })
-
-    # Kalau merge gagal, return responsenya langsung
-    return merge_response
+        # Kalau merge gagal, return responsenya langsung
+        print("❌ Merge failed, returning error response")
+        return merge_response
+        
+    except Exception as e:
+        print(f"❌ Exception in get_merged_video: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Error: {str(e)}'}, status=500)
 
 @csrf_exempt
 @login_required
@@ -547,7 +663,18 @@ def upload_file(request):
                         print(f"[SKIP] Baris {idx+2}: File sudah ada dan valid, melewati download")
                         
                         # Tetap buat atau update record di database jika diperlukan
-                        existing_video = Video.objects.filter(title=video_title, folder_name=folder_name).first()
+                        existing_videos = Video.objects.filter(title=video_title, folder_name=folder_name)
+                        existing_video = existing_videos.first()
+                        
+                        # Cek jika ada duplikasi dan hapus yang extra
+                        if existing_videos.count() > 1:
+                            print(f"⚠️ WARNING: Ditemukan {existing_videos.count()} video duplikat dengan nama {video_title}")
+                            # Hapus duplikasi, sisakan yang pertama
+                            for duplicate in existing_videos[1:]:
+                                print(f"Menghapus duplikasi video ID: {duplicate.id}")
+                                duplicate.delete()
+                            existing_video = existing_videos.first()
+                        
                         if not existing_video:
                             print("File ada di local tapi tidak ada record di database, membuat record baru...")
                             # Gunakan path file yang sudah ada
@@ -676,7 +803,123 @@ def upload_file(request):
 
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+@csrf_exempt
+@login_required
+def cleanup_duplicate_videos(request):
+    """Fungsi untuk membersihkan video duplikat di database"""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized - Admin access required'}, status=403)
+    
+    try:
+        from collections import defaultdict
+        
+        # Grup video berdasarkan title dan folder_name
+        video_groups = defaultdict(list)
+        all_videos = Video.objects.all()
+        
+        for video in all_videos:
+            key = (video.title, video.folder_name)
+            video_groups[key].append(video)
+        
+        cleanup_summary = []
+        total_deleted = 0
+        
+        for (title, folder), videos in video_groups.items():
+            if len(videos) > 1:
+                # Ada duplikasi
+                print(f"Found {len(videos)} duplicates for {title} in folder {folder}")
+                
+                # Simpan yang pertama, hapus sisanya
+                keep_video = videos[0]
+                duplicates = videos[1:]
+                
+                for duplicate in duplicates:
+                    print(f"Deleting duplicate video ID: {duplicate.id}")
+                    duplicate.delete()
+                    total_deleted += 1
+                
+                cleanup_summary.append({
+                    'title': title,
+                    'folder': folder,
+                    'duplicates_found': len(videos),
+                    'duplicates_deleted': len(duplicates),
+                    'kept_video_id': keep_video.id
+                })
+        
+        return JsonResponse({
+            'message': f'Cleanup completed. {total_deleted} duplicate videos deleted.',
+            'total_deleted': total_deleted,
+            'cleanup_details': cleanup_summary
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
+@login_required
+def debug_video_merge(request, video_title):
+    """Debug endpoint untuk mengecek masalah merge"""
+    try:
+        print(f"\n=== DEBUG MERGE UNTUK {video_title} ===")
+        
+        # Cek video yang diminta
+        video = Video.objects.filter(title=video_title).first()
+        if not video:
+            return JsonResponse({'error': f'Video tidak ditemukan: {video_title}'}, status=404)
+        
+        # Cek duplikasi
+        duplicate_count = Video.objects.filter(title=video_title).count()
+        print(f"✅ Video ditemukan: {video.title} (ID: {video.id})")
+        if duplicate_count > 1:
+            print(f"⚠️ WARNING: Ditemukan {duplicate_count} video duplikat!")
+        
+        # Parse nama file
+        name_parts = video_title.replace('.mp4', '').split('_')
+        current_sequence = int(name_parts[-1])
+        base_title = '_'.join(name_parts[:-1])
+        
+        # Cari video berikutnya
+        next_sequence = current_sequence + 1
+        next_video_title = f"{base_title}_{next_sequence:04d}.mp4"
+        
+        print(f"Looking for next video: {next_video_title}")
+        
+        next_video = Video.objects.filter(title=next_video_title).first()
+        
+        # Cek semua video dengan base yang sama
+        similar_videos = Video.objects.filter(title__startswith=base_title).order_by('title')
+        video_list = [v.title for v in similar_videos]
+        
+        debug_info = {
+            'current_video': {
+                'title': video.title,
+                'id': video.id,
+                'file_exists': os.path.exists(video.file.path) if video.file else False,
+                'merged_path': video.merged_video_path,
+                'merged_exists': default_storage.exists(video.merged_video_path) if video.merged_video_path else False
+            },
+            'parsing': {
+                'name_parts': name_parts,
+                'current_sequence': current_sequence,
+                'base_title': base_title,
+                'next_sequence': next_sequence,
+                'next_video_title': next_video_title
+            },
+            'next_video': {
+                'found': next_video is not None,
+                'title': next_video.title if next_video else None,
+                'id': next_video.id if next_video else None,
+                'file_exists': os.path.exists(next_video.file.path) if next_video and next_video.file else False
+            },
+            'similar_videos': video_list
+        }
+        
+        return JsonResponse(debug_info)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 @require_http_methods(["DELETE"])
