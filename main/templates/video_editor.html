@@ -279,6 +279,10 @@
       <button onclick="goToPrevious()">Sebelumnya</button>
       <button id="nextButton" onclick="goToNext()">Selanjutnya</button>
     </div>
+    
+    <div id="previewStatus" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;">
+      <span id="previewMessage"></span>
+    </div>
   </div>
 </div>
 
@@ -313,21 +317,27 @@
     const duration = video.duration;
     endHandle.max = duration;
     endHandle.value = duration;
-    document.getElementById('startVal').textContent = 0;
-    document.getElementById('endVal').textContent = duration;
+    document.getElementById('startVal').textContent = '0.00';
+    document.getElementById('endVal').textContent = duration.toFixed(2);
     document.getElementById('endTime').value = duration;
+    
+    console.log(`Video loaded: duration=${duration.toFixed(2)} seconds`);
   };
 
   endHandle.addEventListener('input', () => {
     const val = parseFloat(endHandle.value);
-    document.getElementById('endVal').textContent = val;
+    document.getElementById('endVal').textContent = val.toFixed(2);
     document.getElementById('endTime').value = val;
 
+    // Reset button OK saat slider berubah
+    document.getElementById('trimButton').disabled = true;
+    
     video.currentTime = 0;
     video.play();
     const interval = setInterval(() => {
-      if (video.currentTime >= val) {
-        video.pause(); clearInterval(interval);
+      if (video.currentTime >= (val - 0.1)) {
+        video.pause(); 
+        clearInterval(interval);
       }
     }, 100);
   });
@@ -354,20 +364,75 @@
     const start = 0;
     const end = parseFloat(document.getElementById('endTime').value);
     if (isNaN(end) || start >= end) return alert('Waktu tidak valid');
+    
+    console.log(`Preview trim: start=${start}, end=${end}`);
+    
+    // Show preview status
+    const statusDiv = document.getElementById('previewStatus');
+    const messageSpan = document.getElementById('previewMessage');
+    statusDiv.style.display = 'block';
+    statusDiv.style.backgroundColor = '#fff3cd';
+    statusDiv.style.border = '1px solid #ffeeba';
+    statusDiv.style.color = '#856404';
+    messageSpan.textContent = '🎬 Preview sedang berjalan... Button OK akan aktif setelah preview selesai.';
+    
+    // Disable button during preview
+    document.getElementById('trimButton').disabled = true;
+    
+    // Set video ke posisi awal dan play
     video.currentTime = start;
     video.play();
+    
+    // Set interval untuk monitor posisi video
     const interval = setInterval(() => {
-      if (video.currentTime >= end) {
-        video.pause(); clearInterval(interval);
+      console.log(`Video time: ${video.currentTime.toFixed(2)}, Target end: ${end.toFixed(2)}`);
+      
+      // Update progress message
+      const progress = ((video.currentTime / end) * 100).toFixed(1);
+      messageSpan.textContent = `🎬 Preview berjalan... ${progress}% (${video.currentTime.toFixed(1)}s / ${end.toFixed(1)}s)`;
+      
+      // Pause saat mencapai end time (dengan toleransi 0.2 detik)
+      if (video.currentTime >= (end - 0.2)) {
+        video.pause();
+        clearInterval(interval);
+        
+        // Enable button dan show success message
         document.getElementById('trimButton').disabled = false;
+        statusDiv.style.backgroundColor = '#d4edda';
+        statusDiv.style.border = '1px solid #c3e6cb';
+        statusDiv.style.color = '#155724';
+        messageSpan.textContent = '✅ Preview selesai! Button OK sudah bisa ditekan untuk memotong video.';
+        
+        console.log('Preview selesai - Button OK sudah bisa ditekan');
       }
     }, 100);
+    
+    // Backup: enable button setelah 5 detik jika interval tidak bekerja
+    setTimeout(() => {
+      clearInterval(interval);
+      document.getElementById('trimButton').disabled = false;
+      statusDiv.style.backgroundColor = '#d4edda';
+      statusDiv.style.border = '1px solid #c3e6cb';
+      statusDiv.style.color = '#155724';
+      messageSpan.textContent = '✅ Preview timeout - Button OK sudah diaktifkan (backup).';
+      console.log('Backup: Button OK diaktifkan setelah 5 detik');
+    }, 5000);
   }
 
   function confirmTrim() {
     const start = 0;
     const end = parseFloat(document.getElementById('endTime').value);
     if (isNaN(end) || start >= end) return alert('Waktu tidak valid');
+    
+    // Show processing status
+    const statusDiv = document.getElementById('previewStatus');
+    const messageSpan = document.getElementById('previewMessage');
+    statusDiv.style.display = 'block';
+    statusDiv.style.backgroundColor = '#cce5ff';
+    statusDiv.style.border = '1px solid #99d6ff';
+    statusDiv.style.color = '#004085';
+    messageSpan.textContent = '⏳ Sedang memproses... Menyimpan anotasi dan memotong video.';
+    
     document.getElementById('trimButton').disabled = true;
 
     const alignment = document.getElementById('alignmentInput')?.value || '';
@@ -388,6 +453,9 @@
     })
     .then(res => {
       if (!res.ok) throw new Error('Gagal menyimpan anotasi');
+      
+      messageSpan.textContent = '⏳ Anotasi berhasil disimpan. Sedang memotong video...';
+      
       // Setelah berhasil menyimpan, baru potong video
       return fetch(`/trim_video/${videoTitle}/`, {
         method: 'POST',
@@ -397,10 +465,22 @@
     })
     .then(res => res.json())
     .then(data => {
-      alert('Berhasil menyimpan dan memangkas video!');
+      statusDiv.style.backgroundColor = '#d4edda';
+      statusDiv.style.border = '1px solid #c3e6cb';
+      statusDiv.style.color = '#155724';
+      messageSpan.textContent = '✅ Berhasil menyimpan anotasi dan memotong video!';
+      
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 3000);
     })
     .catch(err => {
-      alert('Gagal menyimpan atau memotong video!');
+      statusDiv.style.backgroundColor = '#f8d7da';
+      statusDiv.style.border = '1px solid #f5c6cb';
+      statusDiv.style.color = '#721c24';
+      messageSpan.textContent = '❌ Gagal menyimpan atau memotong video! Silakan coba lagi.';
+      
+      document.getElementById('trimButton').disabled = false;
       console.error(err);
     });
   }
