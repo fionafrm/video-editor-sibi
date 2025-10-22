@@ -1,37 +1,296 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>{{ folder_name }} - Video Folder</title>
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}{{ folder_name }} - Video Folder{% endblock title %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/global.css' %}">
   <style>
-    body {
-      font-family: Arial, sans-serif;
+    .folder-content {
       padding: 20px;
     }
-    .video {
-      padding: 10px;
-      margin: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      width: 200px;
-      cursor: pointer;
+
+    .folder-header {
+      text-align: center;
+      margin-bottom: 40px;
     }
-    .video:hover {
-      background-color: #f0f0f0;
+
+    .folder-title {
+      color: #495057;
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .folder-subtitle {
+      color: #6c757d;
+      font-size: 1rem;
+      margin-bottom: 20px;
+    }
+
+    .videos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .video-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border: 1px solid #e9ecef;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .video-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .video-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    .video-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .video-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    .annotation-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 15px;
+      font-weight: 500;
+      font-size: 0.8rem;
+    }
+
+    .status-completed {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status-pending {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
+
+    .video-actions {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary-small {
+      background: #4285f4;
+      color: white;
+      border: 1px solid #4285f4;
+    }
+
+    .btn-primary-small:hover {
+      background: #3367d6;
+      border-color: #3367d6;
+      text-decoration: none;
+      color: white;
+    }
+
+    .btn-secondary-small {
+      background: transparent;
+      color: #6c757d;
+      border: 1px solid #e9ecef;
+    }
+
+    .btn-secondary-small:hover {
+      background: #f8f9fa;
+      border-color: #dee2e6;
+      text-decoration: none;
+      color: #495057;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #6c757d;
+    }
+
+    .empty-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    .empty-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .empty-subtitle {
+      font-size: 1rem;
+      margin-bottom: 30px;
+    }
+
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: #f8f9fa;
+      color: #495057;
+      text-decoration: none;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      margin-bottom: 30px;
+    }
+
+    .back-button:hover {
+      background: #e9ecef;
+      color: #343a40;
+      text-decoration: none;
+      transform: translateX(-2px);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .folder-content {
+        padding: 15px;
+      }
+      
+      .videos-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+      
+      .folder-title {
+        font-size: 1.5rem;
+      }
+      
+      .video-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      
+      .video-actions {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .video-card {
+        padding: 15px;
+      }
+      
+      .video-title {
+        font-size: 1rem;
+      }
+      
+      .back-button {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+      }
     }
   </style>
-</head>
-<body>
+{% endblock extra_css %}
 
-<h1>Videos in {{ folder_name }}</h1>
+{% block content %}
+<div class="folder-content">
+  <a href="/" class="back-button">
+    <span>←</span>
+    Kembali ke Dashboard
+  </a>
 
-<div>
-  {% for video in videos %}
-    <div class="video" onclick="window.location.href='{% url 'main:video_editor' video_title=video.title %}'">
-      <h3>{{ video.title }}</h3>
+  <div class="folder-header">
+    <h1 class="folder-title">Video Folder: {{ folder_name }}</h1>
+    <p class="folder-subtitle">Kelola dan edit video dalam folder ini</p>
+  </div>
+
+  {% if videos %}
+    <div class="videos-grid">
+      {% for video in videos %}
+        <div class="video-card" onclick="window.location.href='{% url 'main:video_editor' video_title=video.title %}'">
+          <h3 class="video-title">{{ video.title }}</h3>
+          
+          <div class="video-info">
+            <div class="video-meta">
+              <span>📅 {{ video.created_at|date:"d/m/Y H:i" }}</span>
+              
+              {% if video.is_annotated %}
+                <span class="annotation-status status-completed">
+                  ✅ Sudah Dianotasi
+                </span>
+              {% else %}
+                <span class="annotation-status status-pending">
+                  ⏳ Belum Dianotasi
+                </span>
+              {% endif %}
+            </div>
+            
+            {% if video.annotated_by %}
+              <div class="video-meta">
+                <span>👤 {{ video.annotated_by.get_full_name|default:video.annotated_by.username }}</span>
+              </div>
+            {% endif %}
+            
+            {% if video.comment %}
+              <div class="video-meta">
+                <span>💬 {{ video.comment|truncatechars:50 }}</span>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="video-actions" onclick="event.stopPropagation();">
+            <a href="{% url 'main:video_editor' video_title=video.title %}" class="btn-small btn-primary-small">
+              Edit Video
+            </a>
+          </div>
+        </div>
+      {% endfor %}
     </div>
-  {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📹</div>
+      <h2 class="empty-title">Folder Kosong</h2>
+      <p class="empty-subtitle">Belum ada video dalam folder ini.</p>
+      <a href="/upload_file_page/" class="btn btn-primary">
+        📤 Upload Video
+      </a>
+    </div>
+  {% endif %}
 </div>
-
-</body>
-</html>
+{% endblock content %}
