@@ -10,6 +10,7 @@ services:
     volumes:
       - ./media:/app/media
       - ./static:/app/static
+      - ./db.sqlite3:/app/db.sqlite3
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY:-django-insecure-change-this}

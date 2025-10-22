@@ -17,9 +17,11 @@ COPY . .
 # Collect static files for production
 RUN python manage.py collectstatic --noinput
 
-RUN python manage.py migrate --noinput
+# --- REMOVE THIS LINE ---
+# RUN python manage.py migrate --noinput
 
 EXPOSE 8000
 
-# Run Django server (FastAPI style command structure)
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# --- CHANGE YOUR CMD TO THIS ---
+# This runs migrate, and *then* runs the server
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
