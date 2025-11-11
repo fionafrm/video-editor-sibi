@@ -30,8 +30,98 @@ import csv
 from .models import Video
 import logging
 from collections import defaultdict
+import zipfile
+from django.http import HttpResponse, FileResponse
 
 logger = logging.getLogger(__name__)
+
+"""DOWNLOAD FUNCTIONS"""
+
+@login_required
+def download_video(request, video_id):
+    """Download video individual"""
+    video = get_object_or_404(Video, id=video_id)
+    
+    if not video.file or not default_storage.exists(video.file.name):
+        messages.error(request, f'File video tidak ditemukan: {video.title}')
+        return redirect('main:landing_page')
+    
+    file_path = video.file.path
+    
+    try:
+        response = FileResponse(
+            open(file_path, 'rb'),
+            content_type='video/mp4'
+        )
+        # Set filename untuk download
+        safe_filename = "".join(c for c in video.title if c.isalnum() or c in (' ', '-', '_', '.')).strip()
+        response['Content-Disposition'] = f'attachment; filename="{safe_filename}"'
+        
+        return response
+    except Exception as e:
+        messages.error(request, f'Error downloading video: {str(e)}')
+        return redirect('main:landing_page')
+
+@login_required
+def download_folder_videos(request, folder_name):
+    """Download semua video dalam folder sebagai ZIP"""
+    videos = Video.objects.filter(folder_name=folder_name)
+    
+    if not videos.exists():
+        messages.error(request, f'Tidak ada video di folder: {folder_name}')
+        return redirect('main:landing_page')
+    
+    # Create ZIP in memory
+    response = HttpResponse(content_type='application/zip')
+    safe_folder_name = "".join(c for c in folder_name if c.isalnum() or c in (' ', '-', '_')).strip()
+    response['Content-Disposition'] = f'attachment; filename="{safe_folder_name}.zip"'
+    
+    with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for video in videos:
+            if video.file and default_storage.exists(video.file.name):
+                file_path = video.file.path
+                
+                # Add video to ZIP (hanya video, tanpa metadata)
+                safe_title = "".join(c for c in video.title if c.isalnum() or c in (' ', '-', '_', '.')).strip()
+                zip_file.write(file_path, f'{safe_folder_name}/{safe_title}')
+    
+    return response
+
+@login_required
+def download_all_videos(request):
+    """Download semua video dari database sebagai ZIP (Admin only)"""
+    if not request.user.is_superuser:
+        messages.error(request, 'Unauthorized - Admin access required')
+        return redirect('main:landing_page')
+    
+    videos = Video.objects.all()
+    
+    if not videos.exists():
+        messages.error(request, 'Tidak ada video di database')
+        return redirect('main:landing_page')
+    
+    # Create ZIP in memory
+    response = HttpResponse(content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="all_videos_database.zip"'
+    
+    with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Group by folder
+        folder_dict = defaultdict(list)
+        for video in videos:
+            folder_dict[video.folder_name or 'uncategorized'].append(video)
+        
+        for folder_name, folder_videos in folder_dict.items():
+            safe_folder = "".join(c for c in folder_name if c.isalnum() or c in (' ', '-', '_')).strip()
+            
+            for video in folder_videos:
+                if video.file and default_storage.exists(video.file.name):
+                    file_path = video.file.path
+                    
+                    # Add video to ZIP (hanya video, tanpa metadata)
+                    safe_title = "".join(c for c in video.title if c.isalnum() or c in (' ', '-', '_', '.')).strip()
+                    zip_file.write(file_path, f'{safe_folder}/{safe_title}')
+    
+    return response
 
 @csrf_exempt
 @login_required

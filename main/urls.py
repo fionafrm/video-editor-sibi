@@ -25,7 +25,10 @@ from .views import (
     reset_password,
     change_password,
     debug_video_merge,
-    cleanup_duplicate_videos
+    cleanup_duplicate_videos,
+    download_video,
+    download_folder_videos,
+    download_all_videos
 )
 
 app_name = 'main'
@@ -84,6 +87,11 @@ urlpatterns = [
     
     # Cleanup duplicate videos (admin only)
     path('cleanup_duplicates/', cleanup_duplicate_videos, name='cleanup_duplicates'),
+
+    # Download endpoints
+    path('download/video/<uuid:video_id>/', download_video, name='download_video'),
+    path('download/folder/<str:folder_name>/', download_folder_videos, name='download_folder_videos'),
+    path('download/all/', download_all_videos, name='download_all_videos'),
 
     # Autentikasi
     path('register/', register, name='register'),
