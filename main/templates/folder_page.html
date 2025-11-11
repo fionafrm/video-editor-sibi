@@ -238,6 +238,14 @@
   <div class="folder-header">
     <h1 class="folder-title">Video Folder: {{ folder_name }}</h1>
     <p class="folder-subtitle">Kelola dan edit video dalam folder ini</p>
+    <div style="margin-top: 20px;">
+      <a href="{% url 'main:download_folder_videos' folder_name=folder_name %}" 
+         class="btn btn-success" 
+         style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">
+        <span>⬇️</span>
+        Download Semua Video di Folder Ini (ZIP)
+      </a>
+    </div>
   </div>
 
   {% if videos %}
@@ -277,6 +285,9 @@
           <div class="video-actions" onclick="event.stopPropagation();">
             <a href="{% url 'main:video_editor' video_title=video.title %}" class="btn-small btn-primary-small">
               Edit Video
+            </a>
+            <a href="{% url 'main:download_video' video_id=video.id %}" class="btn-small btn-secondary-small" title="Download video ini">
+              ⬇️ Download
             </a>
           </div>
         </div>
