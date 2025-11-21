@@ -5,7 +5,6 @@ from .views import (
     save_transcript,
     get_video_details,
     get_merged_video,
-    upload_transcript_csv,
     merge_videos,
     video_editor_page,
     delete_video,
