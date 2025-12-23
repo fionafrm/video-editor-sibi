@@ -28,6 +28,12 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost","127.0.0.1", ".vercel.app", "152.118.31.20", "152.118.31.20:8000", "152.118.31.20:8082", "sl-video-editor.mlcv.cs.ui.ac.id"]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://sl-video-editor.mlcv.cs.ui.ac.id",
+    "http://152.118.31.20:8000",
+    "http://152.118.31.20:8082",
+]
+
 LOGIN_URL = 'main:login'
 
 # Application definition
