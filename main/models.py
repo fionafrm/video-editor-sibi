@@ -19,6 +19,7 @@ class Video(models.Model):
     annotated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     merged_video_path = models.CharField(max_length=255, blank=True, null=True)
+    video_n_duration = models.FloatField(blank=True, null=True)  # Durasi video n untuk marker timeline
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

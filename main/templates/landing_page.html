@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Video Editor SIBI - Landing Page{% endblock title %}
+{% block title %}Sign Language Video Annotator - Landing Page{% endblock title %}
 
 {% block extra_css %}
 <style>
@@ -68,20 +68,6 @@
 {% block content %}
 
 <h1>Pilih tanggal video yang ingin ditampilkan</h1>
-
-{% if user.is_superuser %}
-<div style="text-align: center; margin-bottom: 30px;">
-  <a href="{% url 'main:download_all_videos' %}" 
-     class="btn btn-success" 
-     style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background: #28a745; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(40,167,69,0.3);">
-    <span>📦</span>
-    Download Semua Video Database (ZIP)
-  </a>
-  <p style="color: #6c757d; font-size: 0.9rem; margin-top: 10px;">
-    (Fitur khusus Admin - Download semua video beserta metadata)
-  </p>
-</div>
-{% endif %}
 
 <div class="folder-container">
   {% for folder in folders %}

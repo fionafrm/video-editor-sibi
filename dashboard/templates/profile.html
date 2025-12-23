@@ -142,6 +142,7 @@
                         <div class="form-group">
                             <label class="form-label">Role</label>
                             <input type="text" class="form-input" value="{{ role }}" readonly style="background-color: #f8f9fa; color: #6c757d;">
+                            <small class="form-help">Role tidak dapat diubah</small>
                         </div>
                     </div>
                     
@@ -156,25 +157,10 @@
                                 <small class="form-help">{{ profile_form.bio.help_text }}</small>
                             {% endif %}
                         </div>
-                        
-                        <div class="stats-section">
-                            <h3 class="section-title">Statistik singkat</h3>
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <div class="stat-label">Proyek</div>
-                                    <div class="stat-value projects">{{ user_projects }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Anotasi</div>
-                                    <div class="stat-value annotations">{{ user_annotations }}</div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 
                 <div class="form-footer">
-                    <p class="footer-text">Pastikan data Anda akurat untuk pengalaman anotasi terbaik.</p>
                     <div class="button-group">
                         <a href="{% url 'dashboard:dashboard' %}" class="btn btn-cancel">Kembali ke Dashboard</a>
                         <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
