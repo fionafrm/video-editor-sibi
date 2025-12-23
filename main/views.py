@@ -94,7 +94,16 @@ def download_all_videos(request):
         messages.error(request, 'Unauthorized - Admin access required')
         return redirect('main:landing_page')
     
-    videos = Video.objects.all()
+    # Get folder parameter from query string
+    folder_filter = request.GET.get('folder', 'all')
+    
+    # Filter videos based on folder parameter
+    if folder_filter and folder_filter != 'all':
+        videos = Video.objects.filter(folder_name=folder_filter)
+        zip_filename = f"{folder_filter}_videos.zip"
+    else:
+        videos = Video.objects.all()
+        zip_filename = "all_videos_database.zip"
     
     if not videos.exists():
         messages.error(request, 'Tidak ada video di database')
@@ -102,7 +111,7 @@ def download_all_videos(request):
     
     # Create ZIP in memory
     response = HttpResponse(content_type='application/zip')
-    response['Content-Disposition'] = 'attachment; filename="all_videos_database.zip"'
+    response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
     
     with zipfile.ZipFile(response, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         # Group by folder
@@ -239,7 +248,8 @@ def merge_videos(request, video_title):
         try:
             clip1 = VideoFileClip(path1)
             clip2 = VideoFileClip(path2)
-            print(f"Video 1 duration: {clip1.duration} seconds")
+            video_n_duration = clip1.duration  # Simpan durasi video n untuk marker
+            print(f"Video 1 duration: {video_n_duration} seconds")
             print(f"Video 2 duration: {clip2.duration} seconds")
             
             merged_clip = concatenate_videoclips([clip1, clip2])
@@ -270,14 +280,17 @@ def merge_videos(request, video_title):
             clip2.close()
             merged_clip.close()
 
-            # Simpan path ke model
+            # Simpan path dan durasi video n ke model
             video.merged_video_path = merged_path
+            video.video_n_duration = video_n_duration  # Simpan durasi untuk marker
             video.save()
             print(f"✅ Database updated with merged_video_path: {merged_path}")
+            print(f"✅ Video n duration (marker position): {video_n_duration} seconds")
 
             return JsonResponse({
                 'message': 'Video berhasil digabung.',
-                'merged_video_url': default_storage.url(merged_path)
+                'merged_video_url': default_storage.url(merged_path),
+                'video_n_duration': video_n_duration  # Kirim durasi untuk marker di timeline
             })
         
         except Exception as moviepy_error:
@@ -294,11 +307,17 @@ def merge_videos(request, video_title):
 @csrf_exempt
 @login_required
 def trim_video(request, video_title):
+    """
+    Algoritma Trim Video:
+    1. Yang ditampilkan adalah merge dari video n dan n+1
+    2. Saat trim:
+       - Bagian yang di-keep (start_time sampai end_time) → overwrite video n
+       - Bagian remainder (end_time sampai akhir merge) → overwrite video n+1
+    3. Hapus merged_video_path dari video n
+    4. Saat next, akan merge video n+1 (baru) dengan video n+2
+    """
     if request.method == 'POST':
         video = get_object_or_404(Video, title=video_title)
-
-        # Ambil path video mentah
-        raw_path = os.path.join(settings.MEDIA_ROOT, 'raw_videos', video.folder_name, video.title)
 
         data = json.loads(request.body)
         start_time = data.get('start_time')
@@ -308,50 +327,88 @@ def trim_video(request, video_title):
             return JsonResponse({'error': 'Invalid start or end time'}, status=400)
 
         try:
-            clip = VideoFileClip(raw_path)
-            duration = clip.duration
+            print(f"\n=== TRIM VIDEO {video_title} ===")
+            print(f"Start time: {start_time}, End time: {end_time}")
+            
+            # Ekstrak informasi sequence dari nama file
+            parts = video.title.replace('.mp4', '').split('_')
+            current_seq = int(parts[-1])
+            base = '_'.join(parts[:-1])
+            
+            # Cari video berikutnya
+            next_title = f"{base}_{current_seq+1:04d}.mp4"
+            next_video = Video.objects.filter(title=next_title).first()
+            
+            # Gunakan merged video jika ada, kalau tidak ada gunakan video asli
+            if video.merged_video_path and default_storage.exists(video.merged_video_path):
+                # Gunakan merged video (n+n+1)
+                source_path = default_storage.path(video.merged_video_path)
+                print(f"Using merged video as source: {source_path}")
+            else:
+                # Fallback ke video asli di raw_videos
+                source_path = os.path.join(settings.MEDIA_ROOT, 'raw_videos', video.folder_name, video.title)
+                print(f"Using raw video as source: {source_path}")
+            
+            if not os.path.exists(source_path):
+                return JsonResponse({'error': f'Source video not found: {source_path}'}, status=404)
+            
+            # Load video source
+            source_clip = VideoFileClip(source_path)
+            source_duration = source_clip.duration
+            print(f"Source video duration: {source_duration} seconds")
 
-            if end_time > duration:
-                end_time = duration - 0.01
+            # Validasi waktu
+            if end_time > source_duration:
+                end_time = source_duration - 0.01
+                print(f"Adjusted end_time to {end_time}")
 
             if start_time >= end_time:
+                source_clip.close()
                 return JsonResponse({'error': 'Invalid time range'}, status=400)
 
-            trimmed_clip = clip.subclipped(start_time, end_time)
-
-            # Simpan ke file final (overwrite video "cleaned")
+            # BAGIAN 1: Trim video (start_time sampai end_time) → overwrite video n
+            trimmed_clip = source_clip.subclipped(start_time, end_time)
             final_output_path = video.file.path
+            print(f"Writing trimmed video to video n: {final_output_path}")
             trimmed_clip.write_videofile(final_output_path, codec="libx264", audio_codec="aac")
+            trimmed_clip.close()
+            
+            # BAGIAN 2: Remainder (end_time sampai akhir) → overwrite video n+1
+            if next_video and end_time < source_duration:
+                try:
+                    remainder_clip = source_clip.subclipped(end_time, source_duration)
+                    next_video_path = next_video.file.path
+                    print(f"Writing remainder to video n+1: {next_video_path}")
+                    remainder_clip.write_videofile(next_video_path, codec="libx264", audio_codec="aac")
+                    remainder_clip.close()
+                    
+                    # Hapus merged_video_path dari video n+1 jika ada
+                    if next_video.merged_video_path:
+                        print(f"Clearing merged_video_path from video n+1")
+                        next_video.merged_video_path = None
+                        next_video.save()
+                    
+                    print(f"✅ Successfully overwritten video n+1 with remainder")
+                except Exception as remainder_error:
+                    logger.error(f"Error saving remainder to next video: {str(remainder_error)}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                if not next_video:
+                    print(f"ℹ️ No next video found ({next_title})")
+                if end_time >= source_duration:
+                    print(f"ℹ️ No remainder (trim ends at video end)")
+            
+            # Clean up
+            source_clip.close()
+            
+            # BAGIAN 3: Hapus merged_video_path dari video n agar next time merge ulang
+            if video.merged_video_path:
+                print(f"Clearing merged_video_path from video n")
+                video.merged_video_path = None
+                video.save()
 
-            # After trimming, merge remainder with next video
-            try:
-                # Extract remainder from original raw clip
-                remainder_clip = clip.subclip(end_time, duration)
-                # Determine next videos in sequence
-                parts = video.title.replace('.mp4', '').split('_')
-                current_seq = int(parts[-1])
-                base = '_'.join(parts[:-1])
-                # First next video
-                next_title1 = f"{base}_{current_seq+1:04d}.mp4"
-                next_video1 = Video.objects.filter(title=next_title1).first()
-                if next_video1:
-                    clips = [remainder_clip, VideoFileClip(next_video1.file.path)]
-                    # Check second next video
-                    next_title2 = f"{base}_{current_seq+2:04d}.mp4"
-                    next_video2 = Video.objects.filter(title=next_title2).first()
-                    if next_video2:
-                        clips.append(VideoFileClip(next_video2.file.path))
-                    merged_next_clip = concatenate_videoclips(clips)
-                    # Save merged result for next_video1
-                    merged_fname = f"merged_remainder_{parts[0]}_{parts[-1]}_{next_video1.title}"
-                    merged_path = os.path.join('edited_videos', merged_fname)
-                    os.makedirs(os.path.join(settings.MEDIA_ROOT, 'edited_videos'), exist_ok=True)
-                    merged_next_clip.write_videofile(default_storage.path(merged_path), codec="libx264")
-                    next_video1.merged_video_path = merged_path
-                    next_video1.save()
-            except Exception as merge_e:
-                logger.error(f"Error merging remainder with next video: {str(merge_e)}")
-
+            print(f"✅ Trim completed successfully")
             return JsonResponse({
                 'message': 'Video trimmed and saved successfully.',
                 'trimmed_video_url': video.file.url
@@ -435,10 +492,28 @@ def get_merged_video(request, video_title):
         if video.merged_video_path and default_storage.exists(video.merged_video_path):
             merged_video_url = default_storage.url(video.merged_video_path)
             print(f"✅ Returning existing merged video: {merged_video_url}")
+            
+            # Ambil durasi video n untuk marker
+            video_n_duration = getattr(video, 'video_n_duration', None)
+            
+            # Jika tidak ada di database, hitung dari file asli
+            if video_n_duration is None:
+                try:
+                    video_path = video.file.path
+                    if os.path.exists(video_path):
+                        temp_clip = VideoFileClip(video_path)
+                        video_n_duration = temp_clip.duration
+                        temp_clip.close()
+                        print(f"✅ Calculated video_n_duration: {video_n_duration} seconds")
+                except Exception as e:
+                    print(f"⚠️ Could not calculate video_n_duration: {e}")
+                    video_n_duration = None
+            
             return JsonResponse({
                 'merged_video_url': merged_video_url,
                 'transcript': video.transcript,
-                'comment': video.comment
+                'comment': video.comment,
+                'video_n_duration': video_n_duration  # Kirim durasi untuk marker
             })
 
         print("❌ No existing merged video, attempting to create new one...")
@@ -459,7 +534,8 @@ def get_merged_video(request, video_title):
                     'transcript': video.transcript,
                     'comment': video.comment,
                     'is_single_video': True,
-                    'message': 'Video asli (tidak ada video berikutnya untuk merge)'
+                    'message': 'Video asli (tidak ada video berikutnya untuk merge)',
+                    'video_n_duration': None  # Tidak ada marker untuk single video
                 })
             else:
                 # Video berhasil di-merge
@@ -467,12 +543,15 @@ def get_merged_video(request, video_title):
                 print(f"After merge - merged_video_path: {video.merged_video_path}")
                 if video.merged_video_path:
                     merged_video_url = default_storage.url(video.merged_video_path)
+                    video_n_duration = response_data.get('video_n_duration') or getattr(video, 'video_n_duration', None)
                     print(f"✅ Merge successful, returning: {merged_video_url}")
+                    print(f"✅ Video n duration (marker): {video_n_duration} seconds")
                     return JsonResponse({
                         'merged_video_url': merged_video_url,
                         'transcript': video.transcript,
                         'comment': video.comment,
-                        'is_single_video': False
+                        'is_single_video': False,
+                        'video_n_duration': video_n_duration  # Kirim durasi untuk marker
                     })
                 else:
                     print("❌ Merge reported success but no merged_video_path saved")
@@ -1143,11 +1222,11 @@ def forgot_password(request):
             reset_url = f"http://{current_site.domain}/reset-password/{uid}/{token}/"
             
             # Prepare email content
-            subject = 'Reset Password - Video Editor SIBI'
+            subject = 'Reset Password - Sign Language Video Annotator'
             message = f'''
 Halo {user.username},
 
-Anda meminta reset password untuk akun Video Editor SIBI.
+Anda meminta reset password untuk akun Sign Language Video Annotator.
 Klik link berikut untuk mengatur password baru:
 
 {reset_url}
@@ -1156,7 +1235,7 @@ Link ini berlaku selama 24 jam.
 Jika Anda tidak meminta reset password, abaikan email ini.
 
 Terima kasih,
-Tim Video Editor SIBI
+Tim Sign Language Video Annotator
             '''
             
             # Send email

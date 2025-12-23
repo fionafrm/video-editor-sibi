@@ -18,6 +18,26 @@ from .models import UserProfile
 from .forms import UserEditForm, UserProfileForm
 
 # Create your views here.
+def format_folder_display(folder_name):
+    """Format folder name untuk display (e.g., TVRI_SB_061119 -> TVRI - SIBI - 06/11/19)"""
+    try:
+        parts = folder_name.split('_')
+        lembaga = parts[0]
+        jenis = 'SIBI' if parts[1] == 'SB' else parts[1]
+        tanggal_str = parts[2]  # e.g: 290120
+        
+        # Formating tanggal
+        day = tanggal_str[0:2]
+        month = tanggal_str[2:4]
+        year = '20' + tanggal_str[4:6]
+        tanggal_format = f"{day}/{month}/{year}"
+        display_name = f'{lembaga} - {jenis} - {tanggal_format}'
+        
+        return display_name
+    except:
+        # Jika format tidak sesuai, kembalikan nama asli
+        return folder_name
+
 @login_required
 def dashboard(request):
     user = request.user
@@ -34,15 +54,50 @@ def dashboard(request):
     # Get user's 3 most recent annotated videos (videos accessed by this user)
     user_recent_videos = Video.objects.filter(annotated_by=user).order_by('-created_at')[:3]
     
-    # Get available folders for export options
-    folders = Video.objects.exclude(folder_name__isnull=True).exclude(folder_name='').values_list('folder_name', flat=True).distinct().order_by('folder_name')
+    # Get available folders for export options with display names
+    folder_names = Video.objects.exclude(folder_name__isnull=True).exclude(folder_name='').values_list('folder_name', flat=True).distinct().order_by('folder_name')
+    
+    # Create folder list with both original name and display name
+    folders = []
+    for folder_name in folder_names:
+        folders.append({
+            'name': folder_name,
+            'display_name': format_folder_display(folder_name)
+        })
+    
+    # Get user statistics for admin
+    user_stats = []
+    remaining_videos = 0
+    
+    if user.is_superuser:
+        from django.contrib.auth.models import User
+        from django.db.models import Count, Q
+        
+        users = User.objects.all().annotate(
+            annotation_count=Count('video', filter=Q(video__is_annotated=True))
+        ).order_by('-annotation_count')
+        
+        for u in users:
+            full_name = u.get_full_name() if u.get_full_name() else f"{u.first_name} {u.last_name}".strip()
+            user_stats.append({
+                'username': u.username,
+                'full_name': full_name,
+                'annotation_count': u.annotation_count,
+                'is_superuser': u.is_superuser
+            })
+    else:
+        # Untuk user biasa, hitung statistik personal mereka
+        total_user_videos = Video.objects.count()  # Total video yang available untuk semua user
+        remaining_videos = total_user_videos - user_total_annotations
     
     context = {
         'total_videos': total_videos,
         'total_annotations': total_annotations,
         'user_total_annotations': user_total_annotations,
+        'remaining_videos': remaining_videos,
         'videos': user_recent_videos,
-        'folders': folders
+        'folders': folders,
+        'user_stats': user_stats
     }
     
     return render(request, "dashboard.html", context)
